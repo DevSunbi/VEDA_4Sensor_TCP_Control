@@ -111,7 +111,7 @@
         }
 
         .btn-off {
-            width: 100%;
+            flex: 1;
             padding: 16px;
             border: none;
             border-radius: 14px;
@@ -126,6 +126,30 @@
         .btn-off:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(239, 68, 68, 0.5);
+        }
+
+        .btn-fein {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+        .btn-fein:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.5);
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
         }
 
         .status-bar {
@@ -160,6 +184,7 @@
             </svg>
             Back to Hub
         </a>
+
         <h1>Buzzer Scale</h1>
         <p class="subtitle">Play notes from Do to Do2 via dynamic library</p>
 
@@ -174,7 +199,10 @@
             <div class="key" onclick="playNote('do2')">Do2</div>
         </div>
 
-        <button class="btn-off" onclick="playNote('off')">STOP SOUND</button>
+        <div class="actions-row">
+            <button class="btn-off" onclick="playNote('off')">STOP SOUND</button>
+            <button class="btn-fein" onclick="playNote('fein')">🚨 FEIN ALERT</button>
+        </div>
 
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>

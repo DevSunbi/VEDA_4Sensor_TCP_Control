@@ -12,12 +12,20 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <lib/rpi_common.h>
+#include <poll.h>
+
+#define MAX_FDS 64
 
 static void* clnt_connection(void* arg);
 int sendData(FILE* fp, char* ct, char* filename);
 void sendOk(FILE* fp);
 void sendError(FILE* fp);
 void make_daemon(void);
+
+struct pollfd fds[MAX_FDS];
+int nfds = 1;
+
+pthread_mutex_t fds_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define PORT 8000
 
@@ -65,30 +73,81 @@ int main(void)
         return 1;
     }
 
-    printf("Server started on port %d...\n", PORT);
+    printf("Server started on port %d with poll/multi-thread...\n", PORT);
+
+    //poll fd array init
+    fds[0].fd = ssock; // listening socket
+    fds[0].events = POLLIN;
+
+    for(int i = 1; i < MAX_FDS; i++) {
+        fds[i].fd = -1;
+    }
 
     // 5. 클라이언트 접속 수락 루프
     while (1) {
-        csock = accept(ssock, (struct sockaddr *)&cliaddr, &len);
-        if (csock < 0) {
-            perror("accept");
-            continue;
+        pthread_mutex_lock(&fds_mutex);
+        int ret = poll(fds, nfds, -1);
+        pthread_mutex_unlock(&fds_mutex);
+
+        if(ret < 0) {
+            perror("poll");
+            break;
         }
 
-        // 스레드 레이스 컨디션을 피하기 위해 클라이언트 소켓 값을 힙에 할당
-        int *arg = malloc(sizeof(*arg));
-        *arg = csock;
+        if(fds[0].revents & POLLIN) {
+            csock = accept(ssock, (struct sockaddr *)&cliaddr, &len);
+            if (csock >= 0) {
+                pthread_mutex_lock(&fds_mutex);
+                int added = 0;
+                for(int i=0; i<MAX_FDS; i++) {
+                    if(fds[i].fd == -1) {
+                        fds[i].fd = csock;
+                        fds[i].events = POLLIN;
+                        if(i >= nfds) {
+                            nfds = i+1;
+                        }
+                        added = 1;
+                        break;
+                    }
+                }
+                pthread_mutex_unlock(&fds_mutex);
 
-        // 클라이언트 세션을 처리할 스레드 생성
-        if (pthread_create(&threadl, NULL, clnt_connection, arg) != 0) {
-            perror("pthread_create");
-            close(csock);
-            free(arg);
-        } else {
-            pthread_detach(threadl);
+                if(!added) {
+                    fprintf(stderr, "Max clients reached, Closing connection\n");
+                    close(csock);
+                } else {
+                    printf("New Client Connected: fd %d\n", csock);
+                }
+            }
+        }
+
+        for(int i=1; i<nfds; i++) {
+            if(fds[i].fd != -1 && (fds[i].revents & POLLIN)) {
+                int client_fd = fds[i].fd;
+
+                pthread_mutex_lock(&fds_mutex);
+                fds[i].fd = -1;
+                if(i==nfds-1) {
+                    while(nfds > 1 && fds[nfds - 1].fd == -1) {
+                        nfds--;
+                    }
+                }
+                pthread_mutex_unlock(&fds_mutex);
+                
+                int *arg = malloc(sizeof(*arg));
+                *arg = client_fd;
+
+            // 클라이언트 세션을 처리할 스레드 생성
+                if (pthread_create(&threadl, NULL, clnt_connection, arg) != 0) {
+                    perror("pthread_create");
+                    close(client_fd);
+                    free(arg);
+                } else {
+                    pthread_detach(threadl);
+                }
+            }
         }
     }
-
     close(ssock);
     return 0;
 }

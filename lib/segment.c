@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <softTone.h>
+#include <dlfcn.h>
 #include "rpi_common.h"
 
 // Set to 1 if using a Common Anode display, 0 for Common Cathode
@@ -101,6 +103,19 @@ void segment(char* arg) {
         pwmWrite(LED_PIN, 1024);
         set_led_state(1);
         printf("LED turned ON!\n");
+
+        void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+        if(buzz_handle) {
+            void (*buzzer_func)(void) = dlsym(buzz_handle, "play_fein_style_alert");
+            if(buzzer_func) {
+                buzzer_func();
+            } else {
+                fprintf(stderr, "dlsym play_fein_style_alert failed: %s\n", dlerror());
+            }
+            dlclose(buzz_handle);
+        } else {
+            fprintf(stderr, "dlopen ./libbuzzor.so failed: %s\n", dlerror());
+        }
     } else {
         // Try parsing direct digit
         int val = atoi(arg);

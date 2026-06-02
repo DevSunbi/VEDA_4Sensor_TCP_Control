@@ -36,6 +36,8 @@ static NoteMap notes[] = {
 
 static int tone_initialized = 0;
 
+void play_fein_style_alert(void);
+
 void buzzer(char* arg) {
     printf("Buzzer scale control: %s\n", arg);
 
@@ -55,7 +57,12 @@ void buzzer(char* arg) {
         tone_initialized = 1;
     }
 
-    if (strcasecmp(arg, "OFF") == 0 || strcmp(arg, "0") == 0) {
+    if (strcasecmp(arg, "fein") == 0 || strcasecmp(arg, "alert") == 0) {
+        printf("Playing Fein Alert Melody\n");
+        gpio_unlock();
+        play_fein_style_alert();
+        gpio_lock();
+    } else if (strcasecmp(arg, "OFF") == 0 || strcmp(arg, "0") == 0) {
         softToneWrite(BUZZER_PIN, 0);
         printf("Buzzer OFF\n");
     } else {
@@ -88,4 +95,38 @@ void buzzer(char* arg) {
     }
 
     gpio_unlock();
+}
+
+void play_fein_style_alert(void)
+{
+    int melody[] = {
+        740, 740, 880, 740,
+        0,
+        740, 988, 880,
+        740, 740, 880, 740
+    };
+
+    int duration[] = {
+        120, 120, 160, 220,
+        120,
+        120, 120, 180,
+        120, 120, 160, 260
+    };
+
+    int len = sizeof(melody) / sizeof(melody[0]);
+
+    if (!tone_initialized) {
+        if (softToneCreate(BUZZER_PIN) != 0) {
+            fprintf(stderr, "softToneCreate failed\n");
+            return;
+        }
+        tone_initialized = 1;
+    }
+
+    for (int i = 0; i < len; i++) {
+        softToneWrite(BUZZER_PIN, melody[i]);
+        delay(duration[i]);
+        softToneWrite(BUZZER_PIN, 0);
+        delay(40);
+    }
 }

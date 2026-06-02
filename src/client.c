@@ -12,7 +12,7 @@
 int sockfd = -1;
 int main(int argc, char *argv[])
 {
-   int sockfd, numbytes; // 클라이언트 소켓 디스크립터, 받아올 데이터의 크기 선언 
+   int numbytes; // 클라이언트 소켓 디스크립터, 받아올 데이터의 크기 선언 
    socklen_t addr_len; // 서버 구조체 크기
    char buf[MAXDATASIZE]; // 문자열 수신 버퍼
    struct hostent *he; // 호스트 정보 구조체
