@@ -32,7 +32,7 @@
         }
         .container {
             width: 90%;
-            max-width: 450px;
+            max-width: 680px;
             padding: 40px 30px;
             background: var(--panel-bg);
             border: 1px solid var(--border-color);
@@ -41,6 +41,34 @@
             -webkit-backdrop-filter: blur(16px) saturate(180%);
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             text-align: center;
+        }
+        .sensors-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+        @media (min-width: 520px) {
+            .sensors-wrapper {
+                flex-direction: row;
+                justify-content: space-around;
+            }
+        }
+        .sensor-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        .sensor-card:hover {
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.25);
+            transform: translateY(-2px);
         }
         .back-btn {
             display: inline-flex;
@@ -73,11 +101,11 @@
         
         /* Dial display */
         .sensor-display {
-            width: 180px;
-            height: 180px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             border: 4px solid rgba(255, 255, 255, 0.05);
-            margin: 0 auto 30px auto;
+            margin: 0 auto 20px auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -91,8 +119,12 @@
             border-color: rgba(251, 191, 36, 0.3);
             box-shadow: inset 0 4px 10px rgba(0,0,0,0.5), 0 0 30px rgba(251, 191, 36, 0.3);
         }
+        .sensor-display.digital-dark {
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.5), 0 0 30px rgba(99, 102, 241, 0.3);
+        }
         .sensor-value {
-            font-size: 3.5rem;
+            font-size: 2.8rem;
             font-weight: 800;
             color: #f3f4f6;
             line-height: 1;
@@ -100,6 +132,9 @@
         }
         .sensor-display.bright .sensor-value {
             color: #fbbf24;
+        }
+        .sensor-display.digital-dark .sensor-value {
+            color: #818cf8;
         }
         .sensor-unit {
             font-size: 0.8rem;
@@ -169,12 +204,25 @@
         <h1>LDR Sensor</h1>
         <p class="subtitle">Real-time light intensity monitoring</p>
 
-        <div id="sensorDisplay" class="sensor-display">
-            <div id="sensorVal" class="sensor-value">--</div>
-            <div class="sensor-unit">ADC Value</div>
-        </div>
+        <div class="sensors-wrapper">
+            <!-- Analog Sensor Card (I2C) -->
+            <div class="sensor-card">
+                <div id="sensorDisplay" class="sensor-display">
+                    <div id="sensorVal" class="sensor-value">--</div>
+                    <div class="sensor-unit">I2C ADC (0-255)</div>
+                </div>
+                <div id="statusBadge" class="status-badge">Detecting...</div>
+            </div>
 
-        <div id="statusBadge" class="status-badge">Detecting...</div>
+            <!-- Digital Sensor Card (wPi 0) -->
+            <div class="sensor-card">
+                <div id="digitalDisplay" class="sensor-display">
+                    <div id="digitalVal" class="sensor-value">--</div>
+                    <div class="sensor-unit">GPIO 17 LDR</div>
+                </div>
+                <div id="digitalStatusBadge" class="status-badge">Detecting...</div>
+            </div>
+        </div>
 
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
@@ -186,14 +234,24 @@
         const valEl = document.getElementById('sensorVal');
         const displayEl = document.getElementById('sensorDisplay');
         const badgeEl = document.getElementById('statusBadge');
+        
+        const digitalValEl = document.getElementById('digitalVal');
+        const digitalDisplayEl = document.getElementById('digitalDisplay');
+        const digitalBadgeEl = document.getElementById('digitalStatusBadge');
+
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
 
         // Light/Dark threshold (configured to 180 in photoresistor.c)
         const THRESHOLD = 180;
+        let lastDigitalVal = null;
 
-        function fetchPRValue() {
-            fetch('/pr')
+        function fetchPRValues() {
+            let prSuccess = false;
+            let digitalSuccess = false;
+
+            // 1. I2C ADC 아날로그 센서 데이터
+            const p1 = fetch('/pr')
                 .then(r => {
                     if (!r.ok) throw new Error();
                     return r.text();
@@ -203,11 +261,8 @@
                     if (isNaN(val)) return;
 
                     valEl.textContent = val;
-                    statusDot.className = 'status-dot connected';
-                    statusText.textContent = 'Monitoring Live';
+                    prSuccess = true;
 
-                    // Update UI based on threshold (Higher value = darker in photoresistors)
-                    // If a2dVal >= 180, it is Dark. If a2dVal < 180, it is Bright.
                     if (val < THRESHOLD) {
                         displayEl.classList.add('bright');
                         badgeEl.textContent = 'STATE: BRIGHT';
@@ -217,16 +272,59 @@
                         badgeEl.textContent = 'STATE: DARK';
                         badgeEl.className = 'status-badge dark';
                     }
+                });
+
+            // 2. 일반 LDR 디지털 센서 데이터 및 자동 LED 제어
+            const p2 = fetch('/pr/digital')
+                .then(r => {
+                    if (!r.ok) throw new Error();
+                    return r.text();
+                })
+                .then(valStr => {
+                    const val = parseInt(valStr.trim(), 10);
+                    if (isNaN(val)) return;
+
+                    digitalValEl.textContent = val;
+                    digitalSuccess = true;
+
+                    if (val === 0) { // 0 = 밝음 -> LED ON
+                        digitalDisplayEl.className = 'sensor-display bright';
+                        digitalBadgeEl.textContent = 'LDR: BRIGHT (0)';
+                        digitalBadgeEl.className = 'status-badge bright';
+                        if (lastDigitalVal !== 0) {
+                            fetch('/led/on').catch(err => console.error(err));
+                            lastDigitalVal = 0;
+                        }
+                    } else if (val === 1) { // 1 = 어두움 -> LED OFF
+                        digitalDisplayEl.className = 'sensor-display digital-dark';
+                        digitalBadgeEl.textContent = 'LDR: DARK (1)';
+                        digitalBadgeEl.className = 'status-badge dark';
+                        if (lastDigitalVal !== 1) {
+                            fetch('/led/off').catch(err => console.error(err));
+                            lastDigitalVal = 1;
+                        }
+                    }
+                });
+
+            Promise.all([p1, p2])
+                .then(() => {
+                    if (prSuccess && digitalSuccess) {
+                        statusDot.className = 'status-dot connected';
+                        statusText.textContent = 'All sensors active';
+                    } else {
+                        statusDot.className = 'status-dot error';
+                        statusText.textContent = 'Partial sensor failure';
+                    }
                 })
                 .catch(() => {
                     statusDot.className = 'status-dot error';
-                    statusText.textContent = 'Failed to read sensor';
+                    statusText.textContent = 'Failed to read sensors';
                 });
         }
 
         // Poll every 1 second
-        fetchPRValue();
-        const pollInterval = setInterval(fetchPRValue, 1000);
+        fetchPRValues();
+        const pollInterval = setInterval(fetchPRValues, 1000);
 
         // Clear interval on page navigation
         window.addEventListener('beforeunload', () => {

@@ -129,6 +129,51 @@
             background: #374151;
             box-shadow: none;
         }
+        .control-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .control-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+        .input-row input {
+            width: 80px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            font-weight: 800;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .input-row input:focus {
+            border-color: #6366f1;
+        }
+        .btn-action {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+            width: auto;
+        }
         .status-bar {
             margin-top: 30px;
             font-size: 0.8rem;
@@ -172,8 +217,29 @@
             </div>
         </div>
 
+        <!-- Controls Container -->
+        <div class="control-box">
+            <!-- Direct Display -->
+            <div class="control-group">
+                <label for="digitInput">Direct Digit Display (0-9)</label>
+                <div class="input-row">
+                    <input type="number" id="digitInput" min="0" max="9" value="5" />
+                    <button id="directBtn" class="btn btn-action" onclick="displayDirectDigit()">Display</button>
+                </div>
+            </div>
+
+            <!-- Custom Countdown -->
+            <div class="control-group" style="margin-top: 20px;">
+                <label for="countdownInput">Countdown Start Value (0-9)</label>
+                <div class="input-row">
+                    <input type="number" id="countdownInput" min="0" max="9" value="9" />
+                    <button id="customStartBtn" class="btn btn-action" onclick="startCustomCountdown()">Start Custom</button>
+                </div>
+            </div>
+        </div>
+
         <div style="display: flex; gap: 16px;">
-            <button id="startBtn" class="btn" onclick="startCountdown()" style="flex: 1;">Start Countdown</button>
+            <button id="startBtn" class="btn" onclick="startCountdown()" style="flex: 1;">Start (Default 9-0)</button>
             <button id="offBtn" class="btn" onclick="stopSegment()" style="flex: 1; background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">OFF</button>
         </div>
 
@@ -206,10 +272,85 @@
                 });
         }
 
+        function disableControls(disabled) {
+            startBtn.disabled = disabled;
+            document.getElementById('customStartBtn').disabled = disabled;
+            document.getElementById('directBtn').disabled = disabled;
+            document.getElementById('digitInput').disabled = disabled;
+            document.getElementById('countdownInput').disabled = disabled;
+        }
+
+        function displayDirectDigit() {
+            const input = document.getElementById('digitInput');
+            let val = parseInt(input.value, 10);
+            if (isNaN(val) || val < 0 || val > 9) {
+                alert('Please enter a digit between 0 and 9.');
+                return;
+            }
+
+            statusText.textContent = `Sending digit ${val}...`;
+            statusDot.className = 'status-dot';
+
+            fetch(`/segment/${val}`)
+                .then(r => {
+                    if (r.ok) {
+                        display.textContent = val;
+                        statusDot.className = 'status-dot connected';
+                        statusText.textContent = `Displaying digit: ${val}`;
+                        updateLEDState();
+                    } else {
+                        throw new Error();
+                    }
+                })
+                .catch(() => {
+                    statusDot.className = 'status-dot error';
+                    statusText.textContent = 'Failed to display digit';
+                });
+        }
+
+        function startCustomCountdown() {
+            const input = document.getElementById('countdownInput');
+            let val = parseInt(input.value, 10);
+            if (isNaN(val) || val < 0 || val > 9) {
+                alert('Please enter a start value between 0 and 9.');
+                return;
+            }
+
+            disableControls(true);
+            statusText.textContent = 'Starting custom countdown...';
+            statusDot.className = 'status-dot connected';
+
+            let currentVal = val;
+            display.textContent = currentVal;
+
+            // Send first number to segment immediately
+            fetch(`/segment/${currentVal}`).then(() => updateLEDState());
+
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                currentVal--;
+                display.textContent = currentVal;
+
+                // Send current value to segment display
+                fetch(`/segment/${currentVal}`)
+                    .then(r => {
+                        if (r.ok) {
+                            updateLEDState();
+                        }
+                    });
+
+                if (currentVal <= 0) {
+                    clearInterval(countdownInterval);
+                    statusText.textContent = 'Completed!';
+                    disableControls(false);
+                }
+            }, 1000);
+        }
+
         function stopSegment() {
             clearInterval(countdownInterval);
             display.textContent = '9';
-            startBtn.disabled = false;
+            disableControls(false);
             statusText.textContent = 'Stopping countdown...';
             statusDot.className = 'status-dot';
 
@@ -230,7 +371,7 @@
         }
 
         function startCountdown() {
-            startBtn.disabled = true;
+            disableControls(true);
             statusText.textContent = 'Starting server countdown...';
             statusDot.className = 'status-dot';
 
@@ -242,7 +383,7 @@
                 .catch(() => {
                     statusDot.className = 'status-dot error';
                     statusText.textContent = 'Server response error';
-                    startBtn.disabled = false;
+                    disableControls(false);
                 });
 
             // Start client countdown animation
@@ -262,7 +403,7 @@
                 if (currentVal <= 0) {
                     clearInterval(countdownInterval);
                     statusText.textContent = 'Completed!';
-                    startBtn.disabled = false;
+                    disableControls(false);
                     // Final check to make sure LED state is captured
                     setTimeout(updateLEDState, 500);
                 }

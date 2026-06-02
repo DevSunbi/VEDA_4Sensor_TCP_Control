@@ -51,13 +51,13 @@ void segment(char* arg) {
     if (strcasecmp(arg, "OFF") == 0) {
         set_cancel_countdown(1);
         clear_display();
-        digitalWrite(LED_PIN, LOW);
+        pwmWrite(LED_PIN, 0);
         set_led_state(0);
         printf("Segment and LED OFF\n");
     } else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
         // Reset LED to OFF at start of countdown
-        digitalWrite(LED_PIN, LOW);
+        pwmWrite(LED_PIN, 0);
         set_led_state(0);
         set_cancel_countdown(0);
         
@@ -69,7 +69,7 @@ void segment(char* arg) {
             if (cancelled) {
                 printf("Countdown cancelled!\n");
                 clear_display();
-                digitalWrite(LED_PIN, LOW);
+                pwmWrite(LED_PIN, 0);
                 set_led_state(0);
                 gpio_unlock();
                 return;
@@ -91,14 +91,14 @@ void segment(char* arg) {
         if (cancelled) {
             printf("Countdown cancelled at the end!\n");
             clear_display();
-            digitalWrite(LED_PIN, LOW);
+            pwmWrite(LED_PIN, 0);
             set_led_state(0);
             gpio_unlock();
             return;
         }
 
         // Value became 0, turn on LED
-        digitalWrite(LED_PIN, HIGH);
+        pwmWrite(LED_PIN, 1024);
         set_led_state(1);
         printf("LED turned ON!\n");
     } else {
@@ -107,11 +107,11 @@ void segment(char* arg) {
         if (val >= 0 && val <= 9) {
             display_digit(val);
             if (val == 0) {
-                digitalWrite(LED_PIN, HIGH);
+                pwmWrite(LED_PIN, 1024);
                 set_led_state(1);
                 printf("Digit 0, LED ON\n");
             } else {
-                digitalWrite(LED_PIN, LOW);
+                pwmWrite(LED_PIN, 0);
                 set_led_state(0);
             }
         } else {

@@ -22,17 +22,19 @@ all: $(TARGET_SERVER) $(LIBS)
 $(TARGET_SERVER): src/main.c lib/rpi_common.c
 	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS) -rdynamic -lwiringPi -lpthread -ldl
 
-libled.so: lib/led.c
-	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
+libdevice.so: lib/led.c lib/buzzor.c lib/photoresistor.c lib/segment.c
 
-libbuzzor.so: lib/buzzor.c
-	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
+#libled.so: lib/led.c
+#	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
 
-libphotoresistor.so: lib/photoresistor.c
-	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
+#libbuzzor.so: lib/buzzor.c
+#	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
 
-libsegment.so: lib/segment.c
-	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
+#libphotoresistor.so: lib/photoresistor.c
+#	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
+
+#libsegment.so: lib/segment.c
+#	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
 
 clean:
 	rm -f $(TARGET_SERVER) $(LIBS)

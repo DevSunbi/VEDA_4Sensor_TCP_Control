@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,15 +18,20 @@
             --led-on-shadow: 0 0 30px #10b981, 0 0 60px rgba(16, 185, 129, 0.4);
             --btn-on-gradient: linear-gradient(135deg, #10b981, #059669);
             --btn-off-gradient: linear-gradient(135deg, #ef4444, #dc2626);
+            --led-mid-color: #f59e0b;
+            --led-mid-shadow: 0 0 30px #f59e0b, 0 0 60px rgba(245, 158, 11, 0.4);
+            --btn-mid-gradient: linear-gradient(135deg, #f59e0b, #d97706);
             --text-primary: #f9fafb;
             --text-secondary: #9ca3af;
         }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: 'Outfit', sans-serif;
         }
+
         body {
             min-height: 100vh;
             background: var(--bg-gradient);
@@ -35,6 +41,7 @@
             color: var(--text-primary);
             padding: 20px;
         }
+
         .container {
             width: 90%;
             max-width: 450px;
@@ -47,6 +54,7 @@
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             text-align: center;
         }
+
         .back-btn {
             display: inline-flex;
             align-items: center;
@@ -57,9 +65,11 @@
             margin-bottom: 30px;
             transition: color 0.3s ease;
         }
+
         .back-btn:hover {
             color: #818cf8;
         }
+
         h1 {
             font-size: 2rem;
             font-weight: 800;
@@ -69,12 +79,14 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
         .subtitle {
             font-size: 0.95rem;
             color: var(--text-secondary);
             margin-bottom: 40px;
             font-weight: 300;
         }
+
         .led-wrapper {
             position: relative;
             width: 140px;
@@ -84,6 +96,7 @@
             justify-content: center;
             align-items: center;
         }
+
         .led-bulb {
             width: 80px;
             height: 80px;
@@ -93,10 +106,17 @@
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.5);
         }
+
         .led-bulb.active {
             background: var(--led-on-color);
             box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.5), var(--led-on-shadow);
         }
+
+        .led-bulb.mid {
+            background: var(--led-mid-color);
+            box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.5), var(--led-mid-shadow);
+        }
+
         .led-label {
             margin-bottom: 40px;
             font-size: 0.9rem;
@@ -105,14 +125,22 @@
             text-transform: uppercase;
             letter-spacing: 2px;
         }
+
         .led-label.active {
             color: var(--led-on-color);
             text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
         }
+
+        .led-label.mid-active {
+            color: var(--led-mid-color);
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+        }
+
         .btn-group {
             display: flex;
             gap: 16px;
         }
+
         .btn {
             flex: 1;
             padding: 16px 20px;
@@ -129,16 +157,34 @@
             gap: 8px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
-        .btn-on { background: var(--btn-on-gradient); }
+
+        .btn-on {
+            background: var(--btn-on-gradient);
+        }
+
         .btn-on:hover {
             transform: translateY(-3px);
             box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
         }
-        .btn-off { background: var(--btn-off-gradient); }
+
+        .btn-off {
+            background: var(--btn-off-gradient);
+        }
+
         .btn-off:hover {
             transform: translateY(-3px);
             box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
         }
+
+        .btn-mid {
+            background: var(--btn-mid-gradient);
+        }
+
+        .btn-mid:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
+        }
+
         .status-bar {
             margin-top: 35px;
             font-size: 0.8rem;
@@ -148,26 +194,46 @@
             align-items: center;
             gap: 6px;
         }
+
         .status-dot {
             width: 6px;
             height: 6px;
             border-radius: 50%;
             background: #9ca3af;
         }
+
         .status-dot.connected {
             background: #10b981;
             box-shadow: 0 0 8px #10b981;
         }
+
         .status-dot.error {
             background: #ef4444;
             box-shadow: 0 0 8px #ef4444;
         }
+
+        .silder-box {
+            margin-top: 30px;
+        }
+
+        #brightnessSlider {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        #brightnessText {
+            margin-top: 12px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <a href="index.html" class="back-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"></line>
                 <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
@@ -183,12 +249,19 @@
 
         <div class="btn-group">
             <button class="btn btn-on" onclick="controlLED('on')">ON</button>
+            <button class="btn btn-mid" onclick="controlLED('mid')">MID</button>
             <button class="btn btn-off" onclick="controlLED('off')">OFF</button>
         </div>
 
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
             <span id="statusText">Checking status...</span>
+        </div>
+
+        <div class="slider-box">
+            <input id="brightnessSlider" type="range" min="0" max="1024" value="0"
+                oninput="controlBrightness(this.value)" />
+            <div id="brightnessText">Brightness: 0%</div>
         </div>
     </div>
 
@@ -197,15 +270,23 @@
         const ledStatusLabel = document.getElementById('ledStatusLabel');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
+        const brightnessSlider = document.getElementById('brightnessSlider');
+        const brightnessText = document.getElementById('brightnessText');
+
+        let brightnessTimer = null;
 
         function updateUIState(state) {
             if (state === 'ON') {
-                ledBulb.classList.add('active');
-                ledStatusLabel.classList.add('active');
+                ledBulb.className = 'led-bulb active';
+                ledStatusLabel.className = 'led-label active';
                 ledStatusLabel.textContent = 'LED STATUS: ON';
-            } else {
-                ledBulb.classList.remove('active');
-                ledStatusLabel.classList.remove('active');
+            } else if (state === 'MID') {
+                ledBulb.className = 'led-bulb mid';
+                ledStatusLabel.className = 'led-label mid-active';
+                ledStatusLabel.textContent = 'LED STATUS: MID';
+            } else if (state === 'OFF') {
+                ledBulb.className = 'led-bulb';
+                ledStatusLabel.className = 'led-label';
                 ledStatusLabel.textContent = 'LED STATUS: OFF';
             }
         }
@@ -242,8 +323,52 @@
                 });
         }
 
+        function updateBrightnessUI(value) {
+            value = Number(value);
+
+            brightnessText.testContent = 'Brightness: ${value}%';
+
+            if (value <= 0) {
+                ledBulb.className = 'led-bulb';
+                ledBulb.style.opacity = '1';
+                ledStatusLabel.className = 'led-label';
+                ledStatusLabel.textContent = 'LED STATUS: OFF';
+                return;
+            }
+
+            ledBulb.className = 'led-bulb active';
+            ledBulb.style.opacity = String(0.25 + value / 100 * 0.75);
+            ledStatusLabel.className = 'led-label active';
+            ledStatusLabel.textContent = 'LED STATUS: BRIGHTNESS ${value}%';
+        }
+
+        function controlBrightness(value) {
+            value = Number(value);
+
+            if (value < 0) value = 0;
+            if (value > 1024) value = 1024;
+
+            updateBrightnessUI(value);
+
+            clearTimeout(brightnessTimer);
+
+            brightnessTimer = setTimeout(() => {
+                fetch(`/led/brightness?value=${value}`)
+                    .then(r => {
+                        if (!r.ok) throw new Error();
+                        statusDot.className = 'status-dot connected';
+                        statusText.textContent = 'Brightness updated';
+                    })
+                    .catch(() => {
+                        statusDot.className = 'status-dot error';
+                        statusText.textContent = 'Error sending brightness';
+                    })
+            }, 50);
+        }
+
         // Initialize state on load
         checkLEDState();
     </script>
 </body>
+
 </html>

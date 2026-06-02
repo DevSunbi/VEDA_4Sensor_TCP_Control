@@ -10,12 +10,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 #include <lib/rpi_common.h>
 
 static void* clnt_connection(void* arg);
 int sendData(FILE* fp, char* ct, char* filename);
 void sendOk(FILE* fp);
 void sendError(FILE* fp);
+void make_daemon(void);
 
 #define PORT 8000
 
@@ -25,6 +27,8 @@ int main(void)
     pthread_t threadl;
     struct sockaddr_in serveraddr, cliaddr;
     unsigned int len = sizeof(cliaddr);
+
+    make_daemon();
 
     if(rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
@@ -154,7 +158,7 @@ void *clnt_connection(void *arg)
             goto END;
         }
 
-        void *handle = dlopen("./libled.so", RTLD_LAZY);
+        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -169,8 +173,12 @@ void *clnt_connection(void *arg)
         }
         if (strcasecmp(state, "on") == 0) {
             led_func("ON");
+        } else if (strcasecmp(state, "mid") == 0) {
+            led_func("MID");
         } else if (strcasecmp(state, "off") == 0) {
             led_func("OFF");
+        } else if (strncasecmp(state, "brightness?value=", 17) == 0) {
+            led_func(state+17);
         } else {
             led_func(state);
         }
@@ -179,7 +187,7 @@ void *clnt_connection(void *arg)
         goto END;
     } else if(strncmp(filename, "buzz/", 5) == 0) {
         char *note = filename + 5;
-        void *handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -198,7 +206,7 @@ void *clnt_connection(void *arg)
         goto END;
     } else if(strncmp(filename, "segment/", 8) == 0 || strncmp(filename, "ldr/", 4) == 0) {
         char *cmd = (strncmp(filename, "segment/", 8) == 0) ? (filename + 8) : (filename + 4);
-        void *handle = dlopen("./libsegment.so", RTLD_LAZY);
+        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -222,19 +230,28 @@ void *clnt_connection(void *arg)
         sendOk(clnt_write);
         goto END;
     } else if(strcmp(filename, "pr") == 0) {
-        void *handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
             goto END;
         }
-        int (*get_cds_value_func)() = dlsym(handle, "get_cds_value");
-        if (!get_cds_value_func) {
+
+        int(*get_cds_value_func)() = dlsym(handle, "get_cds_value");
+        if(!get_cds_value_func) {
             fprintf(stderr, "dlsym failed: %s\n", dlerror());
             dlclose(handle);
             sendError(clnt_write);
             goto END;
         }
+
+        // int (*get_cds_value_func)() = dlsym(handle, "get_cds_value");
+        // if (!get_cds_value_func) {
+        //     fprintf(stderr, "dlsym failed: %s\n", dlerror());
+        //     dlclose(handle);
+        //     sendError(clnt_write);
+        //     goto END;
+        // }
         int val = get_cds_value_func();
         dlclose(handle);
 
@@ -247,6 +264,38 @@ void *clnt_connection(void *arg)
                  "Content-Length: %zu\r\n\r\n"
                  "%s", 
                  strlen(content), 
+                 content);
+        fputs(response_buf, clnt_write);
+        fflush(clnt_write);
+        goto END;
+    } else if(strcasecmp(filename, "pr/digital")==0) {
+        void* handle = dlopen("./libdevice.so", RTLD_LAZY);
+        
+        if(!handle) {
+            fprintf(stderr, "dlopen failed: %s\n", dlerror());
+            sendError(clnt_write);
+            goto END;
+        }
+
+        int (*get_pr_value_func)() = dlsym(handle, "get_pr_value");
+        if(!get_pr_value_func) {
+            fprintf(stderr, "dlopen failed: %s\n", dlerror());
+            sendError(clnt_write);
+            goto END;
+        }
+
+        int val = get_pr_value_func();
+        dlclose(handle);
+
+        char content[32];
+        snprintf(content, sizeof(content), "%d", val);
+        char response_buf[BUFSIZ];
+        snprintf(response_buf, sizeof(response_buf),
+                 "HTTP/1.1 200 OK\r\n"
+                 "Content-Type: text/plain\r\n"
+                 "Content-Length: %zu\r\n\r\n"
+                 "%s",
+                 strlen(content),
                  content);
         fputs(response_buf, clnt_write);
         fflush(clnt_write);
@@ -343,4 +392,41 @@ void sendError(FILE* fp)
     fputs(content1, fp);
     fputs(content2, fp);
     fflush(fp);
+}
+
+// Create Daemon
+void make_daemon(void) {
+    pid_t pid;
+    //first Pid fork
+    pid = fork();
+    if(pid < 0) exit(EXIT_FAILURE);
+    if(pid > 0) exit(EXIT_SUCCESS); // parent process end
+    
+    //second session create
+    if(setsid() < 0) exit(EXIT_FAILURE);
+
+    pid = fork();
+    if(pid < 0) exit(EXIT_FAILURE);
+    if(pid > 0) exit(EXIT_SUCCESS); // first child process end
+
+    umask(0); // file authority init
+
+    if(chdir("/home/sunbi/prj") < 0) {
+        perror("chdir failed");
+        exit(EXIT_FAILURE);
+    }
+
+    //default file descriptor close
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    //default IO -> /dev/null redirect
+    int fd = open("/dev/null", O_RDWR);
+    if(fd != -1) {
+        dup2(fd, STDIN_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+    }
 }

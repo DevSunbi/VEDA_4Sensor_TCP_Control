@@ -23,18 +23,31 @@ void led(char *arg)
     gpio_lock();
 
     if (strcasecmp(arg, "ON") == 0) {
-        digitalWrite(LED_PIN, HIGH);
+        pwmWrite(LED_PIN, 1024);
         set_led_state(1);
         printf("LED ON\n");
+    } else if(strcasecmp(arg, "MID") == 0) {
+        pwmWrite(LED_PIN, 512);
+        set_led_state(1);
+        printf("LED MID\n");
     } else if (strcasecmp(arg, "OFF") == 0) {
-        digitalWrite(LED_PIN, LOW);
+        pwmWrite(LED_PIN, 0);
         set_led_state(0);
         set_cancel_countdown(1);
         printf("LED OFF\n");
-    } else {
+    } 
+    else {
         fprintf(stderr, "invalid argument: %s\n", arg);
         fprintf(stderr, "Usage: ON|OFF\n");
+
+        int brightness = atoi(arg);
+        if(brightness >= 0 && brightness <=1024) {
+            pwmWrite(LED_PIN, brightness);
+            set_led_state(brightness > 0 ? 1 : 0);
+            printf("LED brightness: %d\n", brightness);
+        }
     }
+
 
     gpio_unlock();
 }

@@ -22,7 +22,7 @@ int rpi_init(void)
 
     pinMode(SW_PIN, INPUT);
     pinMode(CDS_PIN, INPUT);
-    pinMode(LED_PIN, OUTPUT);
+    pinMode(LED_PIN, PWM_OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
     for (int i = 0; i < 8; i++) {
@@ -30,7 +30,7 @@ int rpi_init(void)
     }
 
     // Set initial pin value based on shared state
-    digitalWrite(LED_PIN, shared_led_state ? HIGH : LOW);
+    pwmWrite(LED_PIN, shared_led_state ? 1024 : 0);
 
     init_result = 1;
     printf("GPIO initialized successfully\n");

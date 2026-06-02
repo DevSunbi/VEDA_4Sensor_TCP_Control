@@ -5,6 +5,7 @@
 #define BUZZER_PIN 2  // wPi 2 / BCM 27
 #define CDS_PIN    3  // wPi 3 / BCM 22
 #define SW_PIN     5  // wPi 5 / BCM 24
+#define PR_PIN     0  // wPi 0 / BCM 17
 
 extern const int segment_pins[8];
 
