@@ -158,7 +158,7 @@ void *clnt_connection(void *arg)
             goto END;
         }
 
-        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
+        void *handle = dlopen("./libled.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -187,7 +187,7 @@ void *clnt_connection(void *arg)
         goto END;
     } else if(strncmp(filename, "buzz/", 5) == 0) {
         char *note = filename + 5;
-        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
+        void *handle = dlopen("./libbuzzor.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -206,7 +206,7 @@ void *clnt_connection(void *arg)
         goto END;
     } else if(strncmp(filename, "segment/", 8) == 0 || strncmp(filename, "ldr/", 4) == 0) {
         char *cmd = (strncmp(filename, "segment/", 8) == 0) ? (filename + 8) : (filename + 4);
-        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
+        void *handle = dlopen("./libsegment.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -230,7 +230,7 @@ void *clnt_connection(void *arg)
         sendOk(clnt_write);
         goto END;
     } else if(strcmp(filename, "pr") == 0) {
-        void *handle = dlopen("./libdevice.so", RTLD_LAZY);
+        void *handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
             sendError(clnt_write);
@@ -269,7 +269,7 @@ void *clnt_connection(void *arg)
         fflush(clnt_write);
         goto END;
     } else if(strcasecmp(filename, "pr/digital")==0) {
-        void* handle = dlopen("./libdevice.so", RTLD_LAZY);
+        void* handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
         
         if(!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
