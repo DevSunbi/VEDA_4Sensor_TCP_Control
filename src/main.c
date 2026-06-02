@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <lib/rpi_common.h>
 #include <poll.h>
+#include <limits.h>
 
 #define MAX_FDS 64
 
@@ -29,14 +30,23 @@ pthread_mutex_t fds_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define PORT 8000
 
-int main(void)
+int main(int argc, char *argv[])
 {
     int ssock, csock;
     pthread_t threadl;
     struct sockaddr_in serveraddr, cliaddr;
     unsigned int len = sizeof(cliaddr);
 
-    make_daemon();
+    int daemonize = 1;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--foreground") == 0) {
+            daemonize = 0;
+        }
+    }
+
+    if (daemonize) {
+        make_daemon();
+    }
 
     if(rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
@@ -367,6 +377,7 @@ void *clnt_connection(void *arg)
         fputs(reg_line, stdout);
         strcpy(reg_buf, reg_line);
         char* buf = strchr(reg_buf, ':');
+        (void)buf;
     } while(strncmp(reg_line, "\r\n", 2)); 	/* 요청 헤더는 ‘\r\n’으로 끝난다. */
 
     /* 파일의 이름을 이용해서 클라이언트로 파일의 내용을 보낸다. */
@@ -382,6 +393,7 @@ END:
     
 int sendData(FILE* fp, char *ct, char *filename)
 {
+    (void)ct;
     /* 클라이언트로 보낼 성공에 대한 응답 메시지 */
     char protocol[ ] = "HTTP/1.1 200 OK\r\n";
     char server[ ] = "Server:Netscape-Enterprise/6.0\r\n";
@@ -470,9 +482,32 @@ void make_daemon(void) {
 
     umask(0); // file authority init
 
-    if(chdir("/home/sunbi/prj") < 0) {
-        perror("chdir failed");
-        exit(EXIT_FAILURE);
+    char path[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (len != -1) {
+        path[len] = '\0';
+        char *dir = strrchr(path, '/');
+        if (dir != NULL) {
+            *dir = '\0'; // truncate executable name to get directory
+            if (chdir(path) < 0) {
+                perror("chdir to exe dir failed");
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            if (chdir("/home/sunbi/projectHome") < 0) {
+                if (chdir("/home/sunbi/src") < 0) {
+                    perror("chdir failed");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+    } else {
+        if (chdir("/home/sunbi/projectHome") < 0) {
+            if (chdir("/home/sunbi/src") < 0) {
+                perror("chdir failed");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
 
     //default file descriptor close
