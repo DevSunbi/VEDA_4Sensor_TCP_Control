@@ -61,6 +61,7 @@
             margin-bottom: 8px;
             background: linear-gradient(135deg, #a5b4fc, #818cf8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .subtitle {
@@ -171,7 +172,10 @@
             </div>
         </div>
 
-        <button id="startBtn" class="btn" onclick="startCountdown()">Start Countdown</button>
+        <div style="display: flex; gap: 16px;">
+            <button id="startBtn" class="btn" onclick="startCountdown()" style="flex: 1;">Start Countdown</button>
+            <button id="offBtn" class="btn" onclick="stopSegment()" style="flex: 1; background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">OFF</button>
+        </div>
 
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
@@ -199,6 +203,29 @@
                     } else {
                         ledBadge.classList.remove('on');
                     }
+                });
+        }
+
+        function stopSegment() {
+            clearInterval(countdownInterval);
+            display.textContent = '9';
+            startBtn.disabled = false;
+            statusText.textContent = 'Stopping countdown...';
+            statusDot.className = 'status-dot';
+
+            fetch('/segment/off')
+                .then(r => {
+                    if (r.ok) {
+                        statusDot.className = 'status-dot connected';
+                        statusText.textContent = 'System Ready (OFF)';
+                        updateLEDState();
+                    } else {
+                        throw new Error();
+                    }
+                })
+                .catch(() => {
+                    statusDot.className = 'status-dot error';
+                    statusText.textContent = 'Connection Error';
                 });
         }
 

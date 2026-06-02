@@ -49,12 +49,32 @@ void segment(char* arg) {
     gpio_lock();
 
     if (strcasecmp(arg, "OFF") == 0) {
+        set_cancel_countdown(1);
         clear_display();
         digitalWrite(LED_PIN, LOW);
+        set_led_state(0);
         printf("Segment and LED OFF\n");
     } else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
+        // Reset LED to OFF at start of countdown
+        digitalWrite(LED_PIN, LOW);
+        set_led_state(0);
+        set_cancel_countdown(0);
+        
         for (int i = 9; i >= 0; i--) {
+            // Release lock briefly to check if a cancel was requested
+            gpio_unlock();
+            int cancelled = get_cancel_countdown();
+            gpio_lock();
+            if (cancelled) {
+                printf("Countdown cancelled!\n");
+                clear_display();
+                digitalWrite(LED_PIN, LOW);
+                set_led_state(0);
+                gpio_unlock();
+                return;
+            }
+
             display_digit(i);
             printf("Segment: %d\n", i);
             
@@ -64,8 +84,22 @@ void segment(char* arg) {
             gpio_lock();
         }
         
+        // Final check after the last second delay
+        gpio_unlock();
+        int cancelled = get_cancel_countdown();
+        gpio_lock();
+        if (cancelled) {
+            printf("Countdown cancelled at the end!\n");
+            clear_display();
+            digitalWrite(LED_PIN, LOW);
+            set_led_state(0);
+            gpio_unlock();
+            return;
+        }
+
         // Value became 0, turn on LED
         digitalWrite(LED_PIN, HIGH);
+        set_led_state(1);
         printf("LED turned ON!\n");
     } else {
         // Try parsing direct digit
@@ -74,9 +108,11 @@ void segment(char* arg) {
             display_digit(val);
             if (val == 0) {
                 digitalWrite(LED_PIN, HIGH);
+                set_led_state(1);
                 printf("Digit 0, LED ON\n");
             } else {
                 digitalWrite(LED_PIN, LOW);
+                set_led_state(0);
             }
         } else {
             fprintf(stderr, "invalid argument: %s\n", arg);

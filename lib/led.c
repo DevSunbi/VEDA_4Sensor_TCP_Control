@@ -24,9 +24,12 @@ void led(char *arg)
 
     if (strcasecmp(arg, "ON") == 0) {
         digitalWrite(LED_PIN, HIGH);
+        set_led_state(1);
         printf("LED ON\n");
     } else if (strcasecmp(arg, "OFF") == 0) {
         digitalWrite(LED_PIN, LOW);
+        set_led_state(0);
+        set_cancel_countdown(1);
         printf("LED OFF\n");
     } else {
         fprintf(stderr, "invalid argument: %s\n", arg);

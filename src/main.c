@@ -139,8 +139,8 @@ void *clnt_connection(void *arg)
     if(strncmp(filename, "led/", 4) == 0) {
         char *state = filename + 4;
         if (strcmp(state, "state") == 0) {
-            int val = digitalRead(LED_PIN); // LED wiringPi pin 0 (BCM 17)
-            char *content = (val == HIGH) ? "ON" : "OFF";
+            int val = get_led_state();
+            char *content = (val == 1) ? "ON" : "OFF";
             char response_buf[BUFSIZ];
             snprintf(response_buf, sizeof(response_buf),
                      "HTTP/1.1 200 OK\r\n"
@@ -221,7 +221,7 @@ void *clnt_connection(void *arg)
         dlclose(handle);
         sendOk(clnt_write);
         goto END;
-    } else if(strncmp(filename, "pr", 2) == 0) {
+    } else if(strcmp(filename, "pr") == 0) {
         void *handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
         if (!handle) {
             fprintf(stderr, "dlopen failed: %s\n", dlerror());
