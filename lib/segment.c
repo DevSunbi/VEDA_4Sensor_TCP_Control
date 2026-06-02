@@ -8,7 +8,8 @@
 
 #define LED 1
 
-static const int segment_pins[8] = {21, 22, 23, 24, 25, 27, 28, 29};
+static const int segment_pins[8] = {21, 22, 23, 24, 26, 27, 28, 29};
+// a, b, c, d, e, f, g, dp
 
 // font definition for common cathode 7-segment (A, B, C, D, E, F, G, DP)
 static const int segment_data[10][8] = {
