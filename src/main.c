@@ -17,20 +17,75 @@ int sendData(FILE* fp, char* ct, char* filename);
 void sendOk(FILE* fp);
 void sendError(FILE* fp);
 
+#define PORT 8000
+
 int main(void)
 {
-    int ssock;
+    int ssock, csock;
     pthread_t threadl;
     struct sockaddr_in serveraddr, cliaddr;
-    unsigned int len;
+    unsigned int len = sizeof(cliaddr);
 
     if(rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
         return 1;
     }
 
-    
+    // 1. 소켓 생성
+    if ((ssock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket");
+        return 1;
+    }
 
+    // 주소 재사용 옵션 설정
+    int optval = 1;
+    setsockopt(ssock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    // 2. 서버 주소 구조체 설정
+    memset(&serveraddr, 0, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serveraddr.sin_port = htons(PORT);
+
+    // 3. 바인드
+    if (bind(ssock, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
+        perror("bind");
+        close(ssock);
+        return 1;
+    }
+
+    // 4. 리슨 (최대 대기 큐 10)
+    if (listen(ssock, 10) < 0) {
+        perror("listen");
+        close(ssock);
+        return 1;
+    }
+
+    printf("Server started on port %d...\n", PORT);
+
+    // 5. 클라이언트 접속 수락 루프
+    while (1) {
+        csock = accept(ssock, (struct sockaddr *)&cliaddr, &len);
+        if (csock < 0) {
+            perror("accept");
+            continue;
+        }
+
+        // 스레드 레이스 컨디션을 피하기 위해 클라이언트 소켓 값을 힙에 할당
+        int *arg = malloc(sizeof(*arg));
+        *arg = csock;
+
+        // 클라이언트 세션을 처리할 스레드 생성
+        if (pthread_create(&threadl, NULL, clnt_connection, arg) != 0) {
+            perror("pthread_create");
+            close(csock);
+            free(arg);
+        } else {
+            pthread_detach(threadl);
+        }
+    }
+
+    close(ssock);
     return 0;
 }
 
