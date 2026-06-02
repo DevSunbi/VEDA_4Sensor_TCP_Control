@@ -129,6 +129,13 @@ void *clnt_connection(void *arg)
         }
     }
 
+    if (strcmp(filename, "favicon.ico") == 0) {
+        char response[] = "HTTP/1.1 204 No Content\r\n\r\n";
+        fputs(response, clnt_write);
+        fflush(clnt_write);
+        goto END;
+    }
+
     if(strncmp(filename, "led/", 4) == 0) {
         char *state = filename + 4;
         if (strcmp(state, "state") == 0) {
