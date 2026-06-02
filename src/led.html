@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Controller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at center, #1e1b4b, #030712);
+            --panel-bg: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --led-off-color: #374151;
+            --led-on-color: #10b981;
+            --led-on-shadow: 0 0 30px #10b981, 0 0 60px rgba(16, 185, 129, 0.4);
+            --btn-on-gradient: linear-gradient(135deg, #10b981, #059669);
+            --btn-off-gradient: linear-gradient(135deg, #ef4444, #dc2626);
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: var(--bg-gradient);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-primary);
+            padding: 20px;
+        }
+        .container {
+            width: 90%;
+            max-width: 450px;
+            padding: 40px 30px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+            transition: color 0.3s ease;
+        }
+        .back-btn:hover {
+            color: #818cf8;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #a5b4fc, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+        .led-wrapper {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 30px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .led-bulb {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--led-off-color);
+            border: 3px solid rgba(0, 0, 0, 0.2);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        .led-bulb.active {
+            background: var(--led-on-color);
+            box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.5), var(--led-on-shadow);
+        }
+        .led-label {
+            margin-bottom: 40px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .led-label.active {
+            color: var(--led-on-color);
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+        .btn-group {
+            display: flex;
+            gap: 16px;
+        }
+        .btn {
+            flex: 1;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn-on { background: var(--btn-on-gradient); }
+        .btn-on:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+        }
+        .btn-off { background: var(--btn-off-gradient); }
+        .btn-off:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+        }
+        .status-bar {
+            margin-top: 35px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #9ca3af;
+        }
+        .status-dot.connected {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+        .status-dot.error {
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Hub
+        </a>
+        <h1>LED Control</h1>
+        <p class="subtitle">Switch the GPIO LED State</p>
+
+        <div class="led-wrapper">
+            <div id="ledBulb" class="led-bulb"></div>
+        </div>
+        <div id="ledStatusLabel" class="led-label">LED STATUS: UNKNOWN</div>
+
+        <div class="btn-group">
+            <button class="btn btn-on" onclick="controlLED('on')">ON</button>
+            <button class="btn btn-off" onclick="controlLED('off')">OFF</button>
+        </div>
+
+        <div class="status-bar">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText">Checking status...</span>
+        </div>
+    </div>
+
+    <script>
+        const ledBulb = document.getElementById('ledBulb');
+        const ledStatusLabel = document.getElementById('ledStatusLabel');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        function updateUIState(state) {
+            if (state === 'ON') {
+                ledBulb.classList.add('active');
+                ledStatusLabel.classList.add('active');
+                ledStatusLabel.textContent = 'LED STATUS: ON';
+            } else {
+                ledBulb.classList.remove('active');
+                ledStatusLabel.classList.remove('active');
+                ledStatusLabel.textContent = 'LED STATUS: OFF';
+            }
+        }
+
+        function checkLEDState() {
+            fetch('/led/state')
+                .then(r => r.text())
+                .then(state => {
+                    updateUIState(state.trim());
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'System Online';
+                })
+                .catch(() => {
+                    statusDot.className = 'status-dot error';
+                    statusText.textContent = 'Failed to fetch status';
+                });
+        }
+
+        function controlLED(action) {
+            statusText.textContent = 'Sending...';
+            fetch(`/led/${action}`)
+                .then(r => {
+                    if (r.ok) {
+                        updateUIState(action.toUpperCase());
+                        statusDot.className = 'status-dot connected';
+                        statusText.textContent = 'Success';
+                    } else {
+                        throw new Error();
+                    }
+                })
+                .catch(() => {
+                    statusDot.className = 'status-dot error';
+                    statusText.textContent = 'Error sending command';
+                });
+        }
+
+        // Initialize state on load
+        checkLEDState();
+    </script>
+</body>
+</html>
