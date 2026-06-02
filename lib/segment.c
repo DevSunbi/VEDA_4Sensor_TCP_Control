@@ -6,10 +6,10 @@
 #include <strings.h>
 #include "rpi_common.h"
 
-#define LED 1
-
-static const int segment_pins[8] = {21, 22, 23, 24, 26, 27, 28, 29};
-// a, b, c, d, e, f, g, dp
+// Set to 1 if using a Common Anode display, 0 for Common Cathode
+#define COMMON_ANODE 1
+#define SEGMENT_ON  (COMMON_ANODE ? LOW : HIGH)
+#define SEGMENT_OFF (COMMON_ANODE ? HIGH : LOW)
 
 // font definition for common cathode 7-segment (A, B, C, D, E, F, G, DP)
 static const int segment_data[10][8] = {
@@ -28,13 +28,13 @@ static const int segment_data[10][8] = {
 static void display_digit(int digit) {
     if (digit < 0 || digit > 9) return;
     for (int i = 0; i < 8; i++) {
-        digitalWrite(segment_pins[i], segment_data[digit][i]);
+        digitalWrite(segment_pins[i], segment_data[digit][i] ? SEGMENT_ON : SEGMENT_OFF);
     }
 }
 
 static void clear_display() {
     for (int i = 0; i < 8; i++) {
-        digitalWrite(segment_pins[i], LOW);
+        digitalWrite(segment_pins[i], SEGMENT_OFF);
     }
 }
 
@@ -48,15 +48,9 @@ void segment(char* arg) {
 
     gpio_lock();
 
-    // Initialize pins as OUTPUT
-    for (int i = 0; i < 8; i++) {
-        pinMode(segment_pins[i], OUTPUT);
-    }
-    pinMode(LED, OUTPUT);
-
     if (strcasecmp(arg, "OFF") == 0) {
         clear_display();
-        digitalWrite(LED, LOW);
+        digitalWrite(LED_PIN, LOW);
         printf("Segment and LED OFF\n");
     } else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
@@ -71,7 +65,7 @@ void segment(char* arg) {
         }
         
         // Value became 0, turn on LED
-        digitalWrite(LED, HIGH);
+        digitalWrite(LED_PIN, HIGH);
         printf("LED turned ON!\n");
     } else {
         // Try parsing direct digit
@@ -79,10 +73,10 @@ void segment(char* arg) {
         if (val >= 0 && val <= 9) {
             display_digit(val);
             if (val == 0) {
-                digitalWrite(LED, HIGH);
+                digitalWrite(LED_PIN, HIGH);
                 printf("Digit 0, LED ON\n");
             } else {
-                digitalWrite(LED, LOW);
+                digitalWrite(LED_PIN, LOW);
             }
         } else {
             fprintf(stderr, "invalid argument: %s\n", arg);

@@ -139,7 +139,7 @@ void *clnt_connection(void *arg)
     if(strncmp(filename, "led/", 4) == 0) {
         char *state = filename + 4;
         if (strcmp(state, "state") == 0) {
-            int val = digitalRead(1); // LED wiringPi pin 1
+            int val = digitalRead(LED_PIN); // LED wiringPi pin 0 (BCM 17)
             char *content = (val == HIGH) ? "ON" : "OFF";
             char response_buf[BUFSIZ];
             snprintf(response_buf, sizeof(response_buf),

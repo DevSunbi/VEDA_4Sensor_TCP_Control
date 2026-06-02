@@ -47,7 +47,7 @@ void buzzer(char* arg) {
     gpio_lock();
 
     if (!tone_initialized) {
-        if (softToneCreate(BUZZER) != 0) {
+        if (softToneCreate(BUZZER_PIN) != 0) {
             fprintf(stderr, "softToneCreate failed\n");
             gpio_unlock();
             return;
@@ -56,7 +56,7 @@ void buzzer(char* arg) {
     }
 
     if (strcasecmp(arg, "OFF") == 0 || strcmp(arg, "0") == 0) {
-        softToneWrite(BUZZER, 0);
+        softToneWrite(BUZZER_PIN, 0);
         printf("Buzzer OFF\n");
     } else {
         int freq = 0;
@@ -69,17 +69,17 @@ void buzzer(char* arg) {
 
         if (freq > 0) {
             printf("Playing note %s at %d Hz for 500ms\n", arg, freq);
-            softToneWrite(BUZZER, freq);
+            softToneWrite(BUZZER_PIN, freq);
             delay(500);
-            softToneWrite(BUZZER, 0);
+            softToneWrite(BUZZER_PIN, 0);
         } else {
             // Try to parse as direct frequency integer
             freq = atoi(arg);
             if (freq > 0) {
                 printf("Playing direct frequency: %d Hz for 500ms\n", freq);
-                softToneWrite(BUZZER, freq);
+                softToneWrite(BUZZER_PIN, freq);
                 delay(500);
-                softToneWrite(BUZZER, 0);
+                softToneWrite(BUZZER_PIN, 0);
             } else {
                 fprintf(stderr, "invalid argument: %s\n", arg);
                 fprintf(stderr, "Usage: do|re|mi|fa|sol|la|si|do2 OR 1-8 OR frequency_hz OR OFF\n");
