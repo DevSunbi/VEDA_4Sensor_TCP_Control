@@ -57,7 +57,7 @@ void buzzer(char* arg) {
         tone_initialized = 1;
     }
 
-    if (strcasecmp(arg, "fein") == 0 || strcasecmp(arg, "alert") == 0) {
+    if(strcasecmp(arg, "fein") == 0 || strcasecmp(arg, "alert") == 0) {
         printf("Playing Fein Alert Melody\n");
         gpio_unlock();
         play_fein_style_alert();
