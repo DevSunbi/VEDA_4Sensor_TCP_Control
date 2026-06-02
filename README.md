@@ -51,7 +51,8 @@ Raspberry Pi 4에서 동작하는 **TCP 기반 IoT 장치 원격 제어 시스�
 |------|---------|----------|--------------|------|
 | LED | 1 | 18 | 12 | 220Ω |
 | Buzzer | 2 | 27 | 13 | - |
-| CDS (AD/DA) | - | - | I2C | PCF8591 ADC (0x48) |
+| CDS (AD/DA) SDA | 8 | 2 | 3 | PCF8591 ADC (0x48) |
+| CDS (AD/DA) SCL | 9 | 3 | 5 | PCF8591 ADC (0x48) |
 | CDS (Analog) | 0 | 17 | 11 | Pull Up, 10kΩ |
 | 7-Segment A | 21 | 5 | 29 | - |
 | 7-Segment B | 22 | 6 | 31 | - |
