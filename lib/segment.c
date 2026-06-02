@@ -125,6 +125,19 @@ void segment(char* arg) {
                 pwmWrite(LED_PIN, 1024);
                 set_led_state(1);
                 printf("Digit 0, LED ON\n");
+
+                void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+                if(buzz_handle) {
+                    void (*buzzer_func)(void) = dlsym(buzz_handle, "play_fein_style_alert");
+                    if(buzzer_func) {
+                        buzzer_func();
+                    } else {
+                        fprintf(stderr, "dlsym play_fein_style_alert failed: %s\n", dlerror());
+                    }
+                    dlclose(buzz_handle);
+                } else {
+                    fprintf(stderr, "dlopen ./libbuzzor.so failed: %s\n", dlerror());
+                }
             } else {
                 pwmWrite(LED_PIN, 0);
                 set_led_state(0);
