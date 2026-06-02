@@ -15,7 +15,8 @@ CROSS_LDFLAGS = --sysroot=$(SYSROOT) \
 
 # Target files
 TARGET_SERVER = server
-LIBS = libled.so libbuzzor.so libphotoresistor.so libsegment.so
+LIBS = libdevice.so
+#LIBS = libled.so libbuzzor.so libphotoresistor.so libsegment.so
 
 all: $(TARGET_SERVER) $(LIBS)
 
