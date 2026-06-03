@@ -1,4 +1,5 @@
 CC = aarch64-linux-gnu-gcc
+HOST_CC = gcc
 SYSROOT = $(HOME)/rpi-sysroot
 
 CFLAGS = -Wall -Wextra -fPIC -I./lib -I. --sysroot=$(SYSROOT) -I$(SYSROOT)/usr/include -I$(SYSROOT)/usr/local/include
@@ -25,7 +26,7 @@ $(TARGET_SERVER): src/main.c lib/rpi_common.c
 	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS) -rdynamic -lwiringPi -lpthread -ldl
 
 $(TARGET_CLIENT): src/client.c
-	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS)
+	$(HOST_CC) -o $@ $^
 
 #libdevice.so: lib/led.c lib/buzzor.c lib/photoresistor.c lib/segment.c
 

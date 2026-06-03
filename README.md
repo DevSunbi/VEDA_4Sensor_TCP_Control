@@ -181,8 +181,13 @@ http://<RPI_IP>:8000/
 | `/led/state` | GET | LED 상태 조회 (`ON` / `OFF`) |
 | `/buzz/<note>` | GET | 부저 음계 재생 (`do`, `re`, `mi`, `fa`, `sol`, `la`, `si`, `do2`, `off`) |
 | `/segment/start` 또는 `/ldr/start` | GET | 9→0 카운트다운 시작 |
+| `/segment/<digit>` | GET | 지정한 `<digit>` 숫자부터 0까지 카운트다운 시작 |
+| `/segment/show/<digit>` | GET | 지정한 `<digit>` 숫자 단발성 화면 출력 |
 | `/segment/off` | GET | 카운트다운 중단 및 세그먼트/LED 끄기 |
 | `/pr` | GET | 조도센서 ADC 값 조회 (0~255) |
+| `/pr/digital` | GET | 조도센서 디지털 값 조회 (0 또는 1) |
+| `/pr/auto/start` | GET | 백그라운드에서 조도감지 자동 LED 제어 구동 시작 |
+| `/pr/auto/stop` | GET | 조도감지 자동 LED 제어 구동 중단 (스레드 안전 종료) |
 
 ---
 

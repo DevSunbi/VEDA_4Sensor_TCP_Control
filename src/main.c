@@ -22,10 +22,12 @@ int sendData(FILE* fp, char* ct, char* filename);
 void sendOk(FILE* fp);
 void sendError(FILE* fp);
 void make_daemon(void);
+void* auto_pr_control_thread(void* arg);
 
 struct pollfd fds[MAX_FDS];
 int nfds = 1;
-
+volatile int auto_pr_running = 0;
+pthread_t auto_pr_thread;
 pthread_mutex_t fds_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define PORT 8000
@@ -369,7 +371,37 @@ void *clnt_connection(void *arg)
         fputs(response_buf, clnt_write);
         fflush(clnt_write);
         goto END;
+    } else if(strncmp(filename, "pr/auto/", 8)==0) {
+        char *cmd = filename + 8;
+
+        if(strcmp(cmd, "start") == 0) {
+            pthread_mutex_lock(&fds_mutex);
+            if(!auto_pr_running) {
+                auto_pr_running = 1;
+                if(pthread_create(&auto_pr_thread, NULL, auto_pr_control_thread, NULL) != 0) {
+                    perror("pthread_create auto_pr");
+                    auto_pr_running = 0;
+                    pthread_mutex_unlock(&fds_mutex);
+                    sendError(clnt_write);
+                    goto END;
+                }
+            }
+            pthread_mutex_unlock(&fds_mutex);
+            sendOk(clnt_write);
+            goto END;
+        } else if(strcmp(cmd, "stop") == 0) {
+            pthread_mutex_lock(&fds_mutex);
+            if(auto_pr_running) {
+                auto_pr_running = 0;
+                pthread_mutex_unlock(&fds_mutex);
+                pthread_join(auto_pr_thread, NULL);
+            } else {
+                pthread_mutex_unlock(&fds_mutex);
+            }
+            sendOk(clnt_write);
+            goto END;
     }
+}
 
     /* 메시지 헤더를 읽어서 화면에 출력하고 나머지는 무시한다. */
     do {
@@ -523,4 +555,34 @@ void make_daemon(void) {
         dup2(fd, STDERR_FILENO);
         close(fd);
     }
+}
+
+void* auto_pr_control_thread(void* arg) {
+    (void)arg;
+    printf("[Auto PR] Thread Started\n");
+
+    void *pr_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    void *led_handle = dlopen("./libled.so", RTLD_LAZY);
+    if(!pr_handle || !led_handle) {
+        auto_pr_running = 0;
+        return NULL;
+    }
+
+    int (*get_pr_value_func)() = dlsym(pr_handle, "get_pr_value");
+    void (*led_func)() = dlsym(led_handle, "led");
+
+    while(auto_pr_running) {
+        int val = get_pr_value_func();
+
+        if(val == 0) {
+            led_func("ON");
+        } else {
+            led_func("OFF");
+        }
+        sleep(1);
+    }
+    dlclose(pr_handle);
+    dlclose(led_handle);
+    printf("[Auto PR] Thread stopped safely\n");
+    return NULL;
 }

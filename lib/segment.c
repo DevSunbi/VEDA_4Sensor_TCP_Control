@@ -56,7 +56,14 @@ void segment(char* arg) {
         pwmWrite(LED_PIN, 0);
         set_led_state(0);
         printf("Segment and LED OFF\n");
-    } else if (strcasecmp(arg, "start") == 0) {
+    } else if(strncasecmp(arg, "show/", 5)==0) {
+        int val = atoi(arg + 5);
+        if(val >= 0 && val <=9) {
+            display_digit(val);
+            pwmWrite(LED_PIN, (val == 0) ? 1024 : 0);
+            set_led_state((val == 0) ? 1 : 0);
+        }
+    }else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
         // Reset LED to OFF at start of countdown
         pwmWrite(LED_PIN, 0);
@@ -120,13 +127,30 @@ void segment(char* arg) {
         // Try parsing direct digit
         int val = atoi(arg);
         if (val >= 0 && val <= 9) {
-            display_digit(val);
-            if (val == 0) {
-                pwmWrite(LED_PIN, 1024);
-                set_led_state(1);
-                printf("Digit 0, LED ON\n");
+            printf("Starting Countdown from %d to 0...\n", val);
+            set_cancel_countdown(0);
+            for(int i = val; i >= 0; i--) {
+                gpio_unlock();
+                int cancelled = get_cancel_countdown();
+                gpio_lock();
+                if(cancelled) {
+                    printf("Canceled!\n");
+                    clear_display();
+                    pwmWrite(LED_PIN, 0);
+                    set_led_state(0);
+                    gpio_unlock();
+                    return;
+                }
+                display_digit(i);
+                gpio_unlock();
+                delay(1000);
+                gpio_lock();
+            }
+            pwmWrite(LED_PIN, 1024);
+            set_led_state(1);
+            printf("Digit 0, LED ON\n");
 
-                void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+            void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
                 if(buzz_handle) {
                     void (*buzzer_func)(void) = dlsym(buzz_handle, "play_fein_style_alert");
                     if(buzzer_func) {
@@ -138,10 +162,6 @@ void segment(char* arg) {
                 } else {
                     fprintf(stderr, "dlopen ./libbuzzor.so failed: %s\n", dlerror());
                 }
-            } else {
-                pwmWrite(LED_PIN, 0);
-                set_led_state(0);
-            }
         } else {
             fprintf(stderr, "invalid argument: %s\n", arg);
             fprintf(stderr, "Usage: start|OFF|0-9\n");

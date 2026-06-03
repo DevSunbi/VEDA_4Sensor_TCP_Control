@@ -24,6 +24,8 @@ int main(int argc, char *argv[])
 {
    struct hostent *he;
    signal(SIGINT, sigint_handler);
+   signal(SIGTSTP, SIG_IGN);
+   signal(SIGQUIT, SIG_IGN);
 
    if(argc!=2) {
     fprintf(stderr, "usage : client hostname \n");
@@ -103,7 +105,7 @@ int main(int argc, char *argv[])
         }
     }
     else if(choice == 4) {
-        printf("1 Read Analog(ADC) 2 Read Digital\n");
+        printf("1 Read Analog(ADC) 2 Read Digital 3 Start Auto LED Control 4 Stop Auto LED Control\n");
         printf("Select Option: ");
 
         int opt;
@@ -113,6 +115,10 @@ int main(int argc, char *argv[])
                     send_command(argv[1], "pr");
                 } else if(opt == 2) {
                     send_command(argv[1], "pr/digital");
+                } else if(opt == 3) {
+                    send_command(argv[1], "pr/auto/start");
+                } else if(opt == 4) {
+                    send_command(argv[1], "pr/auto/stop");
                 } else {
                     printf("Invalid option.\n");
                 }
