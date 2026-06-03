@@ -105,6 +105,7 @@ make
 | 파일 | 설명 |
 |------|------|
 | `server` | TCP 웹 서버 실행 파일 |
+| `client` | TCP 대화형 콘솔 클라이언트 실행 파일 |
 | `libled.so` | LED 제어 공유 라이브러리 |
 | `libbuzzor.so` | 부저 제어 공유 라이브러리 |
 | `libsegment.so` | 7세그먼트 제어 공유 라이브러리 |
@@ -124,7 +125,7 @@ make clean && make
 
 ```bash
 # 실행 파일 및 공유 라이브러리 전송
-scp server lib*.so sunbi@<RPI_IP>:/home/sunbi/projectHome/
+scp server client lib*.so sunbi@<RPI_IP>:/home/sunbi/projectHome/
 
 # HTML 프론트엔드 파일 전송
 scp src/*.html sunbi@<RPI_IP>:/home/sunbi/projectHome/src/
@@ -149,6 +150,19 @@ Server started on port 8000...
 ```
 http://<RPI_IP>:8000/
 ```
+
+### 4. 대화형 콘솔 클라이언트 실행 (Raspberry Pi 또는 호스트)
+
+```bash
+./client <RPI_IP>
+```
+
+실행 시 아래와 같은 인터랙티브 메뉴가 터미널 상에 제공되며, 번호 선택 및 예외 처리를 통해 하드웨어 제어 명령을 전송할 수 있습니다.
+* 1: LED 제어 (ON/MID/OFF 및 0-1024 밝기 값 입력)
+* 2: 부저 음계 제어 (do, re, mi... 등 재생 및 종료)
+* 3: 7세그먼트 카운트다운 제어 (start/off)
+* 4: 조도 센서 실시간 모니터링 (Analog ADC 및 Digital 상태 조회)
+* 5: 프로그램 종료 (Ctrl+C를 통한 안전한 종료 가능)
 
 ---
 

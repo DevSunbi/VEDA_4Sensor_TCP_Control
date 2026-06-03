@@ -15,13 +15,17 @@ CROSS_LDFLAGS = --sysroot=$(SYSROOT) \
 
 # Target files
 TARGET_SERVER = server
+TARGET_CLIENT = client
 #LIBS = libdevice.so
 LIBS = libled.so libbuzzor.so libphotoresistor.so libsegment.so
 
-all: $(TARGET_SERVER) $(LIBS)
+all: $(TARGET_SERVER) $(TARGET_CLIENT) $(LIBS)
 
 $(TARGET_SERVER): src/main.c lib/rpi_common.c
 	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS) -rdynamic -lwiringPi -lpthread -ldl
+
+$(TARGET_CLIENT): src/client.c
+	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS)
 
 #libdevice.so: lib/led.c lib/buzzor.c lib/photoresistor.c lib/segment.c
 
@@ -38,4 +42,4 @@ libsegment.so: lib/segment.c
 	$(CC) $(CFLAGS) -shared -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi
 
 clean:
-	rm -f $(TARGET_SERVER) $(LIBS)
+	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(LIBS)

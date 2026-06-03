@@ -2,55 +2,208 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <strings.h>
 #include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <unistd.h>
+#include <ctype.h>
 
 #define MAXDATASIZE 100
+#define PORT 8000
 int sockfd = -1;
+
+void sigint_handler(int signo);
+void send_command(const char *host, const char *cmd);
+int is_numeric(const char *str);
+
 int main(int argc, char *argv[])
 {
-   int numbytes; // 클라이언트 소켓 디스크립터, 받아올 데이터의 크기 선언 
-   socklen_t addr_len; // 서버 구조체 크기
-   char buf[MAXDATASIZE]; // 문자열 수신 버퍼
-   struct hostent *he; // 호스트 정보 구조체
-   struct sockaddr_in server_addr; // 서버 주소 구조체
+   struct hostent *he;
+   signal(SIGINT, sigint_handler);
 
-   if(argc != 2) {
-       fprintf(stderr, "usage : client hostname \n");
-       exit(1);
+   if(argc!=2) {
+    fprintf(stderr, "usage : client hostname \n");
+    exit(1);
    }
-   if((he = gethostbyname(argv[1])) == NULL) {
-       perror("gethostbyname");
-       exit(1);
+
+   if((he=gethostbyname(argv[1]))==NULL) {
+    perror("gethostbyname");
+    exit(1);
    }
-   if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-       perror("socket");
-       exit(1);
+
+   printf("[Connected to Server IP: %s]\n", (char*)inet_ntoa(*((struct in_addr *)he->h_addr)));
+
+   int choice;
+   char line[128];
+   while(1) {
+    printf("\n1 LED  2 Buzzer  3 7-Segment  4 Photoresistor  5 Quit\n");
+    printf("Select menu: ");
+
+    if(fgets(line, sizeof(line), stdin)==NULL) {
+        break;
+    }
+    if(sscanf(line, "%d", &choice) != 1) {
+        printf("Invalid input. Plz enter a number between 1 and 5\n");
+        continue;
+    }
+
+    if(choice == 1) {
+        printf("Enter state ON/MID/OFF/Brightness value 0-1024: ");
+        char state[64];
+        if(fgets(line, sizeof(line), stdin) != NULL) {
+            if(sscanf(line, "%s", state) == 1) {
+                char cmd[128];
+
+                if(strcasecmp(state, "on") == 0 || strcasecmp(state, "mid") == 0 || strcasecmp(state, "off") == 0) {
+                    snprintf(cmd, sizeof(cmd), "led/%s", state);
+                    send_command(argv[1], cmd);
+                } else if(is_numeric(state)) {
+                    int val = atoi(state);
+
+                    if(val >= 0 && val <= 1024) {
+                        snprintf(cmd, sizeof(cmd), "led/brightness?value=%d", val);
+                        send_command(argv[1], cmd);
+                    } else {
+                        printf("Invalid brightness value. Must be between 0 and 1024\n");
+                    }
+                } else {
+                    printf("Invalid LED State or Brightness value.\n");
+                }
+                 
+            }
+        }
+    }
+    else if(choice == 2) {
+        printf("Enter Buzzer note (do, re, mi, fa, sol, la, si, do2, off) : ");
+        char note[64];
+        
+        if(fgets(line, sizeof(line), stdin) != NULL) {
+            if(sscanf(line, "%s", note) == 1) {
+                char cmd[128];
+                snprintf(cmd, sizeof(cmd), "buzz/%s", note);
+                send_command(argv[1], cmd);
+            }
+        }
+    }
+    else if(choice == 3) {
+        printf("Enter segment command (start/off): ");
+        char seg_cmd[64];
+        
+        if(fgets(line, sizeof(line), stdin)!=NULL) {
+            if(sscanf(line, "%s", seg_cmd) == 1) {
+                char cmd[128];
+                snprintf(cmd, sizeof(cmd), "segment/%s", seg_cmd);
+
+                send_command(argv[1], cmd);
+            }
+        }
+    }
+    else if(choice == 4) {
+        printf("1 Read Analog(ADC) 2 Read Digital\n");
+        printf("Select Option: ");
+
+        int opt;
+        if(fgets(line, sizeof(line), stdin) != NULL) {
+            if(sscanf(line, "%d", &opt) == 1) {
+                if(opt == 1) {
+                    send_command(argv[1], "pr");
+                } else if(opt == 2) {
+                    send_command(argv[1], "pr/digital");
+                } else {
+                    printf("Invalid option.\n");
+                }
+            }
+        }
+    }
+    else if (choice == 5) {
+        printf("Quitting program \n");
+        break;
+    }
    }
-   server_addr.sin_family = AF_INET; // IPv4 명시
-   server_addr.sin_port = htons(60000); // 포트 번호 명시
-   //htons는 네트워크 바이트 주소에서 호스트 바이트 주소로 변경
-   server_addr.sin_addr = *((struct in_addr *)he->h_addr); // 32비트 IP 주소 명시
-   printf("[ %s ]\n",(char*) inet_ntoa(server_addr.sin_addr)); // IP주소 출력
-   //inet_ntoa는 32비트 IP주소를 10진수 표기법으로 변환
-   memset(&(server_addr.sin_zero), '\0',8); // 서버 구조체 0으로 초기화 
-   if(connect(sockfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr))== -1) { // 서버 연결 요청
-       perror("connect");
-       exit(1);
-   }
-   if((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) { // 서버로부터 메시지 수신
-       perror("recv");
-       exit(1);
-   }
-   buf[numbytes] = '\0'; // 문자열 끝 표시(EOF)
-   printf("Received : %s\n", buf); // 수신한 메시지 출력
-   close(sockfd); // 소켓 닫기
    return 0;
 }
 
 void sigint_handler(int signo) {
+    (void)signo;
+    printf("\n Ctrl+C Detected : Program End\n");
+    exit(0);
+}
+
+void send_command(const char *host, const char *cmd) {
+    int sock;
+    struct hostent *he;
+    struct sockaddr_in server_addr;
+    char req[512];
+    char buf[4086];
+
+
+    if((he = gethostbyname(host)) == NULL) {
+        perror("gethostbyname");
+        return;
+    }
+
+    if((sock=socket(AF_INET, SOCK_STREAM, 0))==-1) {
+        perror("socket");
+        return;
+    } 
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr = *((struct in_addr *) he -> h_addr);
+
+    memset(&(server_addr.sin_zero), '\0', 8);
+
+    if(connect(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
+        perror("connect");
+        close(sock);
+        return;
+    }
+
+    snprintf(req, sizeof(req), 
+            "GET /%s HTTP/1.1\r\n"
+            "HOST: %s\r\n"
+            "Connection: close\r\n\r\n", cmd, host);
     
+    if(send(sock, req, strlen(req), 0) == -1) {
+        perror("send");
+        close(sock);
+        return;
+    }
+    int total_bytes = 0;
+    int read_bytes;
+
+    while((read_bytes = recv(sock, buf+total_bytes, sizeof(buf) - total_bytes - 1, 0)) > 0) {
+        total_bytes += read_bytes;
+        if(total_bytes >= (int)sizeof(buf) - 1) {
+            break;
+        }
+    }
+
+    if(read_bytes == -1) {
+        perror("recv");
+        close(sock);
+        return;
+    }
+
+    buf[total_bytes] = '\0';
+    char *body = strstr(buf, "\r\n\r\n");
+    if(body!=NULL) {
+        printf("[Server Response]: %s\n", body+4);
+    } else {
+        printf("[Server Response]: %s\n", buf);
+    }
+    close(sock);
+}
+
+int is_numeric(const char *str) {
+    if(str == NULL || *str == '\0') return 0;
+
+    for(int i = 0; str[i] != '\0'; i++) {
+        if(!isdigit((unsigned char)str[i])) return 0;
+    }
+    return 1;
 }
