@@ -224,6 +224,12 @@
             </div>
         </div>
 
+        <!-- [추가] 서버 측 자동 조도 제어 활성화/비활성화 제어 패널 -->
+        <div class="control-box" style="margin-top: 30px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px 15px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Server-side Auto LED Control</div>
+            <button id="autoToggleBtn" onclick="toggleServerAutoControl()" style="width: 100%; max-width: 320px; padding: 12px 20px; border: none; border-radius: 12px; font-weight: 600; font-size: 0.95rem; color: white; background: linear-gradient(135deg, #6366f1, #4f46e5); cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);">Enable Server Auto Control</button>
+        </div>
+
         <div class="status-bar">
             <div id="statusDot" class="status-dot"></div>
             <span id="statusText">Connecting to sensor...</span>
@@ -287,19 +293,21 @@
                     digitalValEl.textContent = val;
                     digitalSuccess = true;
 
-                    if (val === 0) { // 0 = 밝음 -> LED ON
+                    if (val === 0) { // 0 = 밝음
                         digitalDisplayEl.className = 'sensor-display bright';
                         digitalBadgeEl.textContent = 'LDR: BRIGHT (0)';
                         digitalBadgeEl.className = 'status-badge bright';
-                        if (lastDigitalVal !== 0) {
+                        // [수정] 서버 자동 제어가 작동하지 않을 때만 프론트엔드가 직접 제어합니다.
+                        if (!serverAutoActive && lastDigitalVal !== 0) {
                             fetch('/led/on').catch(err => console.error(err));
                             lastDigitalVal = 0;
                         }
-                    } else if (val === 1) { // 1 = 어두움 -> LED OFF
+                    } else if (val === 1) { // 1 = 어두움
                         digitalDisplayEl.className = 'sensor-display digital-dark';
                         digitalBadgeEl.textContent = 'LDR: DARK (1)';
                         digitalBadgeEl.className = 'status-badge dark';
-                        if (lastDigitalVal !== 1) {
+                        // [수정] 서버 자동 제어가 작동하지 않을 때만 프론트엔드가 직접 제어합니다.
+                        if (!serverAutoActive && lastDigitalVal !== 1) {
                             fetch('/led/off').catch(err => console.error(err));
                             lastDigitalVal = 1;
                         }
@@ -310,7 +318,7 @@
                 .then(() => {
                     if (prSuccess && digitalSuccess) {
                         statusDot.className = 'status-dot connected';
-                        statusText.textContent = 'All sensors active';
+                        statusText.textContent = serverAutoActive ? 'Server Auto LED Control active' : 'All sensors active';
                     } else {
                         statusDot.className = 'status-dot error';
                         statusText.textContent = 'Partial sensor failure';
@@ -320,6 +328,38 @@
                     statusDot.className = 'status-dot error';
                     statusText.textContent = 'Failed to read sensors';
                 });
+        }
+
+        let serverAutoActive = false;
+
+        function toggleServerAutoControl() {
+            const btn = document.getElementById('autoToggleBtn');
+            if (!serverAutoActive) {
+                fetch('/pr/auto/start')
+                    .then(r => {
+                        if (r.ok) {
+                            serverAutoActive = true;
+                            btn.textContent = 'Disable Server Auto Control';
+                            btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                            btn.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
+                            statusText.textContent = 'Server Auto LED Control enabled';
+                        }
+                    });
+            } else {
+                fetch('/pr/auto/stop')
+                    .then(r => {
+                        if (r.ok) {
+                            serverAutoActive = false;
+                            btn.textContent = 'Enable Server Auto Control';
+                            btn.style.background = 'linear-gradient(135deg, #6366f1, #4f46e5)';
+                            btn.style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.2)';
+                            statusText.textContent = 'Server Auto LED Control disabled';
+                            // 자동 제어 해제 시 LED 끄기
+                            fetch('/led/off');
+                            lastDigitalVal = 1;
+                        }
+                    });
+        }
         }
 
         // Poll every 1 second

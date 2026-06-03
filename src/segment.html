@@ -291,7 +291,8 @@
             statusText.textContent = `Sending digit ${val}...`;
             statusDot.className = 'status-dot';
 
-            fetch(`/segment/${val}`)
+            // [수정] show/ 경로를 통해 단발성 세그먼트 출력을 수행합니다.
+            fetch(`/segment/show/${val}`)
                 .then(r => {
                     if (r.ok) {
                         display.textContent = val;
@@ -323,7 +324,7 @@
             let currentVal = val;
             display.textContent = currentVal;
 
-            // Send first number to segment immediately
+            // [수정] 서버 측에 숫자 기반 카운트다운 루프를 1회만 요청하여 실행시킵니다.
             fetch(`/segment/${currentVal}`).then(() => updateLEDState());
 
             clearInterval(countdownInterval);
@@ -331,18 +332,14 @@
                 currentVal--;
                 display.textContent = currentVal;
 
-                // Send current value to segment display
-                fetch(`/segment/${currentVal}`)
-                    .then(r => {
-                        if (r.ok) {
-                            updateLEDState();
-                        }
-                    });
+                // [수정] 매 초마다 서버로 요청을 중복 송신하여 루프 충돌을 야기하던 코드를 제거하고, LED 상태만 폴링합니다.
+                updateLEDState();
 
                 if (currentVal <= 0) {
                     clearInterval(countdownInterval);
                     statusText.textContent = 'Completed!';
                     disableControls(false);
+                    setTimeout(updateLEDState, 500);
                 }
             }, 1000);
         }
