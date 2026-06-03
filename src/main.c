@@ -29,8 +29,20 @@ int nfds = 1;
 volatile int auto_pr_running = 0;
 pthread_t auto_pr_thread;
 pthread_mutex_t fds_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pr_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define PORT 8000
+
+void (*led_func)(char*) = NULL;
+void (*buzzer_func)(char*) = NULL;
+void (*segment_func)(char*) = NULL;
+int (*get_cds_value_func)(void) = NULL;
+int (*get_pr_value_func)(void) = NULL;
+
+void *led_handle = NULL;
+void *buzzer_handle = NULL;
+void *segment_handle = NULL;
+void *pr_handle = NULL;
 
 int main(int argc, char *argv[])
 {
@@ -53,6 +65,36 @@ int main(int argc, char *argv[])
     if(rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
         return 1;
+    }
+
+    // Load dynamic libraries and resolve function symbols
+    led_handle = dlopen("./libled.so", RTLD_LAZY);
+    if (!led_handle) {
+        fprintf(stderr, "Failed to load libled.so: %s\n", dlerror());
+    } else {
+        led_func = dlsym(led_handle, "led");
+    }
+
+    buzzer_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+    if (!buzzer_handle) {
+        fprintf(stderr, "Failed to load libbuzzor.so: %s\n", dlerror());
+    } else {
+        buzzer_func = dlsym(buzzer_handle, "buzzer");
+    }
+
+    segment_handle = dlopen("./libsegment.so", RTLD_LAZY);
+    if (!segment_handle) {
+        fprintf(stderr, "Failed to load libsegment.so: %s\n", dlerror());
+    } else {
+        segment_func = dlsym(segment_handle, "segment");
+    }
+
+    pr_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    if (!pr_handle) {
+        fprintf(stderr, "Failed to load libphotoresistor.so: %s\n", dlerror());
+    } else {
+        get_cds_value_func = dlsym(pr_handle, "get_cds_value");
+        get_pr_value_func = dlsym(pr_handle, "get_pr_value");
     }
 
     // 1. 소켓 생성
@@ -97,9 +139,7 @@ int main(int argc, char *argv[])
 
     // 5. 클라이언트 접속 수락 루프
     while (1) {
-        pthread_mutex_lock(&fds_mutex);
         int ret = poll(fds, nfds, -1);
-        pthread_mutex_unlock(&fds_mutex);
 
         if(ret < 0) {
             perror("poll");
@@ -229,16 +269,8 @@ void *clnt_connection(void *arg)
             goto END;
         }
 
-        void *handle = dlopen("./libled.so", RTLD_LAZY);
-        if (!handle) {
-            fprintf(stderr, "dlopen failed: %s\n", dlerror());
-            sendError(clnt_write);
-            goto END;
-        }
-        void (*led_func)(char*) = dlsym(handle, "led");
         if (!led_func) {
-            fprintf(stderr, "dlsym failed: %s\n", dlerror());
-            dlclose(handle);
+            fprintf(stderr, "led_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
@@ -253,40 +285,22 @@ void *clnt_connection(void *arg)
         } else {
             led_func(state);
         }
-        dlclose(handle);
         sendOk(clnt_write);
         goto END;
     } else if(strncmp(filename, "buzz/", 5) == 0) {
         char *note = filename + 5;
-        void *handle = dlopen("./libbuzzor.so", RTLD_LAZY);
-        if (!handle) {
-            fprintf(stderr, "dlopen failed: %s\n", dlerror());
-            sendError(clnt_write);
-            goto END;
-        }
-        void (*buzzer_func)(char*) = dlsym(handle, "buzzer");
         if (!buzzer_func) {
-            fprintf(stderr, "dlsym failed: %s\n", dlerror());
-            dlclose(handle);
+            fprintf(stderr, "buzzer_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
         buzzer_func(note);
-        dlclose(handle);
         sendOk(clnt_write);
         goto END;
     } else if(strncmp(filename, "segment/", 8) == 0 || strncmp(filename, "ldr/", 4) == 0) {
         char *cmd = (strncmp(filename, "segment/", 8) == 0) ? (filename + 8) : (filename + 4);
-        void *handle = dlopen("./libsegment.so", RTLD_LAZY);
-        if (!handle) {
-            fprintf(stderr, "dlopen failed: %s\n", dlerror());
-            sendError(clnt_write);
-            goto END;
-        }
-        void (*segment_func)(char*) = dlsym(handle, "segment");
         if (!segment_func) {
-            fprintf(stderr, "dlsym failed: %s\n", dlerror());
-            dlclose(handle);
+            fprintf(stderr, "segment_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
@@ -297,34 +311,15 @@ void *clnt_connection(void *arg)
         } else {
             segment_func(cmd);
         }
-        dlclose(handle);
         sendOk(clnt_write);
         goto END;
     } else if(strcmp(filename, "pr") == 0) {
-        void *handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
-        if (!handle) {
-            fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        if (!get_cds_value_func) {
+            fprintf(stderr, "get_cds_value_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
-
-        int(*get_cds_value_func)() = dlsym(handle, "get_cds_value");
-        if(!get_cds_value_func) {
-            fprintf(stderr, "dlsym failed: %s\n", dlerror());
-            dlclose(handle);
-            sendError(clnt_write);
-            goto END;
-        }
-
-        // int (*get_cds_value_func)() = dlsym(handle, "get_cds_value");
-        // if (!get_cds_value_func) {
-        //     fprintf(stderr, "dlsym failed: %s\n", dlerror());
-        //     dlclose(handle);
-        //     sendError(clnt_write);
-        //     goto END;
-        // }
         int val = get_cds_value_func();
-        dlclose(handle);
 
         char content[32];
         snprintf(content, sizeof(content), "%d", val);
@@ -340,23 +335,12 @@ void *clnt_connection(void *arg)
         fflush(clnt_write);
         goto END;
     } else if(strcasecmp(filename, "pr/digital")==0) {
-        void* handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
-        
-        if(!handle) {
-            fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        if (!get_pr_value_func) {
+            fprintf(stderr, "get_pr_value_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
-
-        int (*get_pr_value_func)() = dlsym(handle, "get_pr_value");
-        if(!get_pr_value_func) {
-            fprintf(stderr, "dlopen failed: %s\n", dlerror());
-            sendError(clnt_write);
-            goto END;
-        }
-
         int val = get_pr_value_func();
-        dlclose(handle);
 
         char content[32];
         snprintf(content, sizeof(content), "%d", val);
@@ -375,33 +359,33 @@ void *clnt_connection(void *arg)
         char *cmd = filename + 8;
 
         if(strcmp(cmd, "start") == 0) {
-            pthread_mutex_lock(&fds_mutex);
+            pthread_mutex_lock(&pr_mutex);
             if(!auto_pr_running) {
                 auto_pr_running = 1;
                 if(pthread_create(&auto_pr_thread, NULL, auto_pr_control_thread, NULL) != 0) {
                     perror("pthread_create auto_pr");
                     auto_pr_running = 0;
-                    pthread_mutex_unlock(&fds_mutex);
+                    pthread_mutex_unlock(&pr_mutex);
                     sendError(clnt_write);
                     goto END;
                 }
             }
-            pthread_mutex_unlock(&fds_mutex);
+            pthread_mutex_unlock(&pr_mutex);
             sendOk(clnt_write);
             goto END;
         } else if(strcmp(cmd, "stop") == 0) {
-            pthread_mutex_lock(&fds_mutex);
+            pthread_mutex_lock(&pr_mutex);
             if(auto_pr_running) {
                 auto_pr_running = 0;
-                pthread_mutex_unlock(&fds_mutex);
+                pthread_mutex_unlock(&pr_mutex);
                 pthread_join(auto_pr_thread, NULL);
             } else {
-                pthread_mutex_unlock(&fds_mutex);
+                pthread_mutex_unlock(&pr_mutex);
             }
             sendOk(clnt_write);
             goto END;
+        }
     }
-}
 
     /* 메시지 헤더를 읽어서 화면에 출력하고 나머지는 무시한다. */
     do {
@@ -436,9 +420,9 @@ int sendData(FILE* fp, char *ct, char *filename)
     char filepath[BUFSIZ];
 
     if (strcmp(filename, "") == 0) {
-        strcpy(filepath, "src/index.html");
-    } else if (strncmp(filename, "src/", 4) != 0) {
-        snprintf(filepath, sizeof(filepath), "src/%s", filename);
+        strcpy(filepath, "resources/index.html");
+    } else if (strncmp(filename, "resources/", 10) != 0) {
+        snprintf(filepath, sizeof(filepath), "resources/%s", filename);
     } else {
         strcpy(filepath, filename);
     }
@@ -468,10 +452,16 @@ void sendOk(FILE* fp)
 {
     /* 클라이언트에 보낼 성공에 대한 HTTP 응답 메시지 */
     char protocol[ ] = "HTTP/1.1 200 OK\r\n";
-    char server[ ] = "Server: Netscape-Enterprise/6.0\r\n\r\n";
+    char server[ ] = "Server: Netscape-Enterprise/6.0\r\n";
+    char content_type[ ] = "Content-Type: text/plain\r\n";
+    char content_len[ ] = "Content-Length: 2\r\n\r\n";
+    char body[ ] = "OK";
 
     fputs(protocol, fp);
     fputs(server, fp);
+    fputs(content_type, fp);
+    fputs(content_len, fp);
+    fputs(body, fp);
     fflush(fp);
 }
     
@@ -561,28 +551,18 @@ void* auto_pr_control_thread(void* arg) {
     (void)arg;
     printf("[Auto PR] Thread Started\n");
 
-    void *pr_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
-    void *led_handle = dlopen("./libled.so", RTLD_LAZY);
-    if(!pr_handle || !led_handle) {
-        auto_pr_running = 0;
-        return NULL;
-    }
-
-    int (*get_pr_value_func)() = dlsym(pr_handle, "get_pr_value");
-    void (*led_func)() = dlsym(led_handle, "led");
-
     while(auto_pr_running) {
-        int val = get_pr_value_func();
+        if (get_pr_value_func && led_func) {
+            int val = get_pr_value_func();
 
-        if(val == 0) {
-            led_func("ON");
-        } else {
-            led_func("OFF");
+            if(val == 0) {
+                led_func("ON");
+            } else {
+                led_func("OFF");
+            }
         }
         sleep(1);
     }
-    dlclose(pr_handle);
-    dlclose(led_handle);
     printf("[Auto PR] Thread stopped safely\n");
     return NULL;
 }

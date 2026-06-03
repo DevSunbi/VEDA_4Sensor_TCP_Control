@@ -293,19 +293,19 @@
                     digitalValEl.textContent = val;
                     digitalSuccess = true;
 
-                    if (val === 0) { // 0 = 밝음
-                        digitalDisplayEl.className = 'sensor-display bright';
-                        digitalBadgeEl.textContent = 'LDR: BRIGHT (0)';
-                        digitalBadgeEl.className = 'status-badge bright';
+                    if (val === 0) { // 0 = 어두움
+                        digitalDisplayEl.className = 'sensor-display digital-dark';
+                        digitalBadgeEl.textContent = 'LDR: DARK (0)';
+                        digitalBadgeEl.className = 'status-badge dark';
                         // [수정] 서버 자동 제어가 작동하지 않을 때만 프론트엔드가 직접 제어합니다.
                         if (!serverAutoActive && lastDigitalVal !== 0) {
                             fetch('/led/on').catch(err => console.error(err));
                             lastDigitalVal = 0;
                         }
-                    } else if (val === 1) { // 1 = 어두움
-                        digitalDisplayEl.className = 'sensor-display digital-dark';
-                        digitalBadgeEl.textContent = 'LDR: DARK (1)';
-                        digitalBadgeEl.className = 'status-badge dark';
+                    } else if (val === 1) { // 1 = 밝음
+                        digitalDisplayEl.className = 'sensor-display bright';
+                        digitalBadgeEl.textContent = 'LDR: BRIGHT (1)';
+                        digitalBadgeEl.className = 'status-badge bright';
                         // [수정] 서버 자동 제어가 작동하지 않을 때만 프론트엔드가 직접 제어합니다.
                         if (!serverAutoActive && lastDigitalVal !== 1) {
                             fetch('/led/off').catch(err => console.error(err));

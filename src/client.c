@@ -15,6 +15,7 @@
 #define MAXDATASIZE 100
 #define PORT 8000
 int sockfd = -1;
+char server_ip[128] = "";
 
 void sigint_handler(int signo);
 void send_command(const char *host, const char *cmd);
@@ -31,6 +32,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "usage : client hostname \n");
     exit(1);
    }
+
+   strncpy(server_ip, argv[1], sizeof(server_ip) - 1);
 
    if((he=gethostbyname(argv[1]))==NULL) {
     perror("gethostbyname");
@@ -105,7 +108,7 @@ int main(int argc, char *argv[])
         }
     }
     else if(choice == 4) {
-        printf("1 Read Analog(ADC) 2 Read Digital 3 Start Auto LED Control 4 Stop Auto LED Control\n");
+        printf("1 Read Analog(ADC) 2 Read Digital 3 Start Auto LED Control 4 Stop Auto LED Control 5 Go Back\n");
         printf("Select Option: ");
 
         int opt;
@@ -119,6 +122,9 @@ int main(int argc, char *argv[])
                     send_command(argv[1], "pr/auto/start");
                 } else if(opt == 4) {
                     send_command(argv[1], "pr/auto/stop");
+                } else if(opt == 5) {
+                    // Go back to main menu
+                    printf("Going back to main menu...\n");
                 } else {
                     printf("Invalid option.\n");
                 }
@@ -126,7 +132,8 @@ int main(int argc, char *argv[])
         }
     }
     else if (choice == 5) {
-        printf("Quitting program \n");
+        printf("Stopping auto control (if running) and quitting program...\n");
+        send_command(server_ip, "pr/auto/stop");
         break;
     }
    }
@@ -135,7 +142,10 @@ int main(int argc, char *argv[])
 
 void sigint_handler(int signo) {
     (void)signo;
-    printf("\n Ctrl+C Detected : Program End\n");
+    printf("\n Ctrl+C Detected : Stopping auto control and exiting...\n");
+    if (strlen(server_ip) > 0) {
+        send_command(server_ip, "pr/auto/stop");
+    }
     if (sockfd != -1) {
         close(sockfd);
         printf("[Resource Cleanup] Closed active socket descriptor: %d\n", sockfd);
