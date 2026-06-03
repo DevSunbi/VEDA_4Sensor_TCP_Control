@@ -136,11 +136,15 @@ int main(int argc, char *argv[])
 void sigint_handler(int signo) {
     (void)signo;
     printf("\n Ctrl+C Detected : Program End\n");
+    if (sockfd != -1) {
+        close(sockfd);
+        printf("[Resource Cleanup] Closed active socket descriptor: %d\n", sockfd);
+        sockfd = -1;
+    }
     exit(0);
 }
 
 void send_command(const char *host, const char *cmd) {
-    int sock;
     struct hostent *he;
     struct sockaddr_in server_addr;
     char req[512];
@@ -152,7 +156,7 @@ void send_command(const char *host, const char *cmd) {
         return;
     }
 
-    if((sock=socket(AF_INET, SOCK_STREAM, 0))==-1) {
+    if((sockfd=socket(AF_INET, SOCK_STREAM, 0))==-1) {
         perror("socket");
         return;
     } 
@@ -163,9 +167,10 @@ void send_command(const char *host, const char *cmd) {
 
     memset(&(server_addr.sin_zero), '\0', 8);
 
-    if(connect(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
+    if(connect(sockfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
         perror("connect");
-        close(sock);
+        close(sockfd);
+        sockfd = -1;
         return;
     }
 
@@ -174,15 +179,16 @@ void send_command(const char *host, const char *cmd) {
             "HOST: %s\r\n"
             "Connection: close\r\n\r\n", cmd, host);
     
-    if(send(sock, req, strlen(req), 0) == -1) {
+    if(send(sockfd, req, strlen(req), 0) == -1) {
         perror("send");
-        close(sock);
+        close(sockfd);
+        sockfd = -1;
         return;
     }
     int total_bytes = 0;
     int read_bytes;
 
-    while((read_bytes = recv(sock, buf+total_bytes, sizeof(buf) - total_bytes - 1, 0)) > 0) {
+    while((read_bytes = recv(sockfd, buf+total_bytes, sizeof(buf) - total_bytes - 1, 0)) > 0) {
         total_bytes += read_bytes;
         if(total_bytes >= (int)sizeof(buf) - 1) {
             break;
@@ -191,7 +197,8 @@ void send_command(const char *host, const char *cmd) {
 
     if(read_bytes == -1) {
         perror("recv");
-        close(sock);
+        close(sockfd);
+        sockfd = -1;
         return;
     }
 
@@ -202,7 +209,8 @@ void send_command(const char *host, const char *cmd) {
     } else {
         printf("[Server Response]: %s\n", buf);
     }
-    close(sock);
+    close(sockfd);
+    sockfd = -1;
 }
 
 int is_numeric(const char *str) {
