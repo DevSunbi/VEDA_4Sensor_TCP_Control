@@ -499,46 +499,46 @@ void *clnt_connection(void *arg)
             }
             sendOk(clnt_write);
             goto END;
-        } else if(strcmp(filename, "api/threads") == 0) {
-            char response_body[4096] = "[";
-            int first = 1;
-
-            pthread_mutex_lock(&thread_list_mutex);
-            
-            for(int i = 0; i < MAX_THREADS; i++) {
-                char item[256];
-                if(active_threads[i].is_activate) {
-                    if(!first) {
-                        strcat(response_body, ",");
-                    }
-                    double elapsed = difftime(time(NULL), active_threads[i].start_time);
-                    snprintf(item, sizeof(item), "{\"tid\":%lu,\"ip\":\"%s\",\"cmd\":\"%s\",\"uptime\":%.0f}", 
-                    (unsigned long)active_threads[i].tid, 
-                    active_threads[i].client_ip, 
-                    active_threads[i].active_cmd, 
-                    elapsed);
-                    strcat(response_body, item);
-                    first = 0;
-                }
-            }
-            pthread_mutex_unlock(&thread_list_mutex);
-            strcat(response_body, "]");
-
-            char response_header[BUFSIZ];
-            snprintf(response_header, sizeof(response_header), 
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: application/json\r\n"
-                "Content-Length: %zu\r\n"
-                "Access-Control-Allow-Origin: *\r\n\r\n",
-                strlen(response_body));
-            fputs(response_header, clnt_write);
-            fputs(response_body, clnt_write);
-            fflush(clnt_write);
-            goto END;
         } else {
             sendError(clnt_write);
             goto END;
         }
+    } else if(strcmp(filename, "api/threads") == 0) {
+        char response_body[4096] = "[";
+        int first = 1;
+
+        pthread_mutex_lock(&thread_list_mutex);
+        
+        for(int i = 0; i < MAX_THREADS; i++) {
+            char item[256];
+            if(active_threads[i].is_activate) {
+                if(!first) {
+                    strcat(response_body, ",");
+                }
+                double elapsed = difftime(time(NULL), active_threads[i].start_time);
+                snprintf(item, sizeof(item), "{\"tid\":%lu,\"ip\":\"%s\",\"cmd\":\"%s\",\"uptime\":%.0f}", 
+                (unsigned long)active_threads[i].tid, 
+                active_threads[i].client_ip, 
+                active_threads[i].active_cmd, 
+                elapsed);
+                strcat(response_body, item);
+                first = 0;
+            }
+        }
+        pthread_mutex_unlock(&thread_list_mutex);
+        strcat(response_body, "]");
+
+        char response_header[BUFSIZ];
+        snprintf(response_header, sizeof(response_header), 
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: application/json\r\n"
+            "Content-Length: %zu\r\n"
+            "Access-Control-Allow-Origin: *\r\n\r\n",
+            strlen(response_body));
+        fputs(response_header, clnt_write);
+        fputs(response_body, clnt_write);
+        fflush(clnt_write);
+        goto END;
     }
 
     /* 메시지 헤더를 읽어서 화면에 출력하고 나머지는 무시한다. */
