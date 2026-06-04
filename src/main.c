@@ -11,14 +11,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
-#include <rpi_common.h>
 #include <poll.h>
 #include <limits.h>
+#include <signal.h>
+#include <rpi_common.h>
 #include <led.h>
 #include <buzzor.h>
 #include <photoresistor.h>
 #include <segment.h>
-
 
 typedef struct {
     void *led_handle;
@@ -45,11 +45,13 @@ void sendOk(FILE* fp);
 void sendError(FILE* fp);
 void make_daemon(void);
 void* auto_pr_control_thread(void* arg);
+void handle_shutdown_signal(int sig);
 
 struct pollfd fds[MAX_FDS];
 int nfds = 1;
 volatile int auto_pr_running = 0;
 pthread_t auto_pr_thread;
+volatile sig_atomic_t server_running = 1;
 pthread_mutex_t fds_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t pr_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -72,6 +74,15 @@ int main(int argc, char *argv[])
     pthread_t threadl;
     struct sockaddr_in serveraddr, cliaddr;
     unsigned int len = sizeof(cliaddr);
+
+    struct sigaction sa;
+    sa.sa_handler = handle_shutdown_signal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
 
     int daemonize = 1;
     for (int i = 1; i < argc; i++) {
@@ -194,10 +205,13 @@ int main(int argc, char *argv[])
     }
 
     // 5. 클라이언트 접속 수락 루프
-    while (1) {
+    while (server_running) {
         int ret = poll(fds, nfds, -1);
 
         if(ret < 0) {
+            if(errno==EINTR) {
+                continue;
+            }
             perror("poll");
             break;
         }
@@ -256,7 +270,14 @@ int main(int argc, char *argv[])
             }
         }
     }
+    printf("Shutting down server gracefully...\n");
     close(ssock);
+
+    if(hw.led_handle) dlclose(hw.led_handle);
+    if(hw.buzzer_handle) dlclose(hw.buzzer_handle);
+    if(hw.segment_handle) dlclose(hw.segment_handle);
+    if(hw.photoresistor_handle) dlclose(hw.photoresistor_handle);
+
     return 0;
 }
 
@@ -573,7 +594,7 @@ void make_daemon(void) {
                 exit(EXIT_FAILURE);
             }
         } else {
-            if (chdir("/home/sunbi/projectHome") < 0) {
+            if (chdir("/home/sunbi/prj") < 0) {
                 if (chdir("/home/sunbi/src") < 0) {
                     perror("chdir failed");
                     exit(EXIT_FAILURE);
@@ -581,7 +602,7 @@ void make_daemon(void) {
             }
         }
     } else {
-        if (chdir("/home/sunbi/projectHome") < 0) {
+        if (chdir("/home/sunbi/prj") < 0) {
             if (chdir("/home/sunbi/src") < 0) {
                 perror("chdir failed");
                 exit(EXIT_FAILURE);
@@ -622,4 +643,9 @@ void* auto_pr_control_thread(void* arg) {
     }
     printf("[Auto PR] Thread stopped safely\n");
     return NULL;
+}
+
+void handle_shutdown_signal(int sig) {
+    (void)sig;
+    server_running = 0;
 }

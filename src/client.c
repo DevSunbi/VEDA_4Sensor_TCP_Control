@@ -17,14 +17,21 @@
 int sockfd = -1;
 char server_ip[128] = "";
 
-void sigint_handler(int signo);
+volatile sig_atomic_t
+server_running = 1;
+
 void send_command(const char *host, const char *cmd);
 int is_numeric(const char *str);
+void handle_shutdown_signal(int sig);
 
 int main(int argc, char *argv[])
 {
    struct hostent *he;
-   signal(SIGINT, sigint_handler);
+   struct sigaction sa;
+   sa.sa_handler = handle_shutdown_signal;
+   sigemptyset(&sa.sa_mask);
+   sa.sa_flags = 0;
+   //signal(SIGINT, sigint_handler);
    signal(SIGTSTP, SIG_IGN);
    signal(SIGQUIT, SIG_IGN);
 
@@ -44,7 +51,7 @@ int main(int argc, char *argv[])
 
    int choice;
    char line[128];
-   while(1) {
+   while(server_running) {
     printf("\n1 LED  2 Buzzer  3 7-Segment  4 Photoresistor  5 Quit\n");
     printf("Select menu: ");
 
@@ -95,7 +102,7 @@ int main(int argc, char *argv[])
         }
     }
     else if(choice == 3) {
-        printf("Enter segment command (start/off): ");
+        printf("Enter segment command (start/off/0-9/show/0-9): ");
         char seg_cmd[64];
         
         if(fgets(line, sizeof(line), stdin)!=NULL) {
@@ -140,19 +147,19 @@ int main(int argc, char *argv[])
    return 0;
 }
 
-void sigint_handler(int signo) {
-    (void)signo;
-    printf("\n Ctrl+C Detected : Stopping auto control and exiting...\n");
-    if (strlen(server_ip) > 0) {
-        send_command(server_ip, "pr/auto/stop");
-    }
-    if (sockfd != -1) {
-        close(sockfd);
-        printf("[Resource Cleanup] Closed active socket descriptor: %d\n", sockfd);
-        sockfd = -1;
-    }
-    exit(0);
-}
+// void sigint_handler(int signo) {
+//     (void)signo;
+//     printf("\n Ctrl+C Detected : Stopping auto control and exiting...\n");
+//     if (strlen(server_ip) > 0) {
+//         send_command(server_ip, "pr/auto/stop");
+//     }
+//     if (sockfd != -1) {
+//         close(sockfd);
+//         printf("[Resource Cleanup] Closed active socket descriptor: %d\n", sockfd);
+//         sockfd = -1;
+//     }
+//     exit(0);
+// }
 
 void send_command(const char *host, const char *cmd) {
     struct hostent *he;
@@ -230,4 +237,9 @@ int is_numeric(const char *str) {
         if(!isdigit((unsigned char)str[i])) return 0;
     }
     return 1;
+}
+
+void handle_shutdown_signal(int sig) {
+    (void)sig;
+    server_running=0;
 }

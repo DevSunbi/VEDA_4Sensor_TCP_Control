@@ -1,0 +1,36 @@
+CC = aarch64-linux-gnu-gcc
+HOST_CC = gcc
+
+# include/ 폴더 및 lib/ 폴더 경로 지정
+CFLAGS = -Wall -Wextra -fPIC -I./lib -I./include -I.
+
+# Target files
+TARGET_SERVER = server
+TARGET_CLIENT = client
+LIBS = libled.so libbuzzor.so libphotoresistor.so libsegment.so
+
+all: $(TARGET_SERVER) $(TARGET_CLIENT) $(LIBS)
+
+# server 빌드
+$(TARGET_SERVER): src/main.c lib/rpi_common.c
+	$(CC) $(CFLAGS) -o $@ $^ -rdynamic -lwiringPi -lpthread -ldl
+
+# client 빌드 (Host PC 환경)
+$(TARGET_CLIENT): src/client.c
+	$(HOST_CC) -o $@ $^
+
+# 개별 공유 라이브러리 빌드
+libled.so: lib/led.c
+	$(CC) $(CFLAGS) -shared -o $@ $^ -lwiringPi
+
+libbuzzor.so: lib/buzzor.c
+	$(CC) $(CFLAGS) -shared -o $@ $^ -lwiringPi
+
+libphotoresistor.so: lib/photoresistor.c
+	$(CC) $(CFLAGS) -shared -o $@ $^ -lwiringPi
+
+libsegment.so: lib/segment.c
+	$(CC) $(CFLAGS) -shared -o $@ $^ -lwiringPi
+
+clean:
+	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(LIBS)
