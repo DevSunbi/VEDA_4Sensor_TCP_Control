@@ -421,18 +421,23 @@ void *clnt_connection(void *arg)
             sendError(clnt_write);
             goto END;
         }
+        int rc = 0;
         if (strcasecmp(state, "on") == 0) {
-            hw.led_func("ON");
+            rc = hw.led_func("ON");
         } else if (strcasecmp(state, "mid") == 0) {
-            hw.led_func("MID");
+            rc = hw.led_func("MID");
         } else if (strcasecmp(state, "off") == 0) {
-            hw.led_func("OFF");
+            rc = hw.led_func("OFF");
         } else if (strncasecmp(state, "brightness?value=", 17) == 0) {
-            hw.led_func(state+17);
+            rc = hw.led_func(state+17);
         } else {
-            hw.led_func(state);
+            rc = hw.led_func(state);
         }
-        sendOk(clnt_write);
+        if (rc < 0) {
+            sendError(clnt_write);
+        } else {
+            sendOk(clnt_write);
+        }
         goto END;
     } else if(strncmp(filename, "buzz/", 5) == 0) {
         char *note = filename + 5;
@@ -441,8 +446,11 @@ void *clnt_connection(void *arg)
             sendError(clnt_write);
             goto END;
         }
-        hw.buzzer_func(note);
-        sendOk(clnt_write);
+        if (hw.buzzer_func(note) < 0) {
+            sendError(clnt_write);
+        } else {
+            sendOk(clnt_write);
+        }
         goto END;
     } else if(strncmp(filename, "segment/", 8) == 0 || strncmp(filename, "ldr/", 4) == 0) {
         char *cmd = (strncmp(filename, "segment/", 8) == 0) ? (filename + 8) : (filename + 4);
@@ -451,14 +459,19 @@ void *clnt_connection(void *arg)
             sendError(clnt_write);
             goto END;
         }
+        int rc = 0;
         if (strcasecmp(cmd, "status") == 0) {
-            hw.segment_func("status");
+            rc = hw.segment_func("status");
         } else if (strcasecmp(cmd, "off") == 0) {
-            hw.segment_func("OFF");
+            rc = hw.segment_func("OFF");
         } else {
-            hw.segment_func(cmd);
+            rc = hw.segment_func(cmd);
         }
-        sendOk(clnt_write);
+        if (rc < 0) {
+            sendError(clnt_write);
+        } else {
+            sendOk(clnt_write);
+        }
         goto END;
     } else if(strcmp(filename, "pr") == 0) {
         if (!hw.get_cds_value_func) {
@@ -639,16 +652,25 @@ int sendData(FILE* fp, char *ct, char *filename)
         strcpy(filepath, filename);
     }
 
-    fputs(protocol, fp);
-    fputs(server, fp);
-    fputs(cnt_type, fp);
-    fputs(end, fp);
+    /* 경로 순회 차단: '..'이 포함된 경로는 거부 */
+    if (strstr(filepath, "..") != NULL) {
+        fprintf(stderr, "Path traversal blocked: %s\n", filepath);
+        sendError(fp);
+        return -1;
+    }
 
     fd = open(filepath, O_RDONLY); 		/* 파일을 읽기 전용으로 연다. */
     if (fd < 0) {
         fprintf(stderr, "Failed to open file: %s (error: %s)\n", filepath, strerror(errno));
+        sendError(fp);
         return -1;
     }
+
+    /* 파일 열기 성공 후 200 OK 헤더 전송 */
+    fputs(protocol, fp);
+    fputs(server, fp);
+    fputs(cnt_type, fp);
+    fputs(end, fp);
     
     while ((len = read(fd, buf, BUFSIZ - 1)) > 0) {
         buf[len] = '\0';

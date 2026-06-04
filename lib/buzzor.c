@@ -38,21 +38,22 @@ static int tone_initialized = 0;
 
 void play_fein_style_alert(void);
 
-void buzzer(char* arg) {
+int buzzer(char* arg) {
     printf("Buzzer scale control: %s\n", arg);
 
     if (rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
-        return;
+        return -1;
     }
 
+    int result = 0;
     gpio_lock();
 
     if (!tone_initialized) {
         if (softToneCreate(BUZZER_PIN) != 0) {
             fprintf(stderr, "softToneCreate failed\n");
             gpio_unlock();
-            return;
+            return -1;
         }
         tone_initialized = 1;
     }
@@ -90,11 +91,13 @@ void buzzer(char* arg) {
             } else {
                 fprintf(stderr, "invalid argument: %s\n", arg);
                 fprintf(stderr, "Usage: do|re|mi|fa|sol|la|si|do2 OR 1-8 OR frequency_hz OR OFF\n");
+                result = -1;
             }
         }
     }
 
     gpio_unlock();
+    return result;
 }
 
 void play_fein_style_alert(void)

@@ -7,7 +7,7 @@
 #include <softPwm.h>
 #include "rpi_common.h"
 
-void led(char *arg)
+int led(char *arg)
 {
     printf("Raspberry Pi blink\n");
 
@@ -18,9 +18,10 @@ void led(char *arg)
 
     if (rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
-        return;
+        return -1;
     }
 
+    int result = 0;
     gpio_lock();
 
     if (strcasecmp(arg, "ON") == 0) {
@@ -47,9 +48,11 @@ void led(char *arg)
         } else {
             fprintf(stderr, "invalid argument: %s\n", arg);
             fprintf(stderr, "Usage: ON|MID|OFF|brightness(0-1024)\n");
+            result = -1;
         }
     }
 
 
     gpio_unlock();
+    return result;
 }

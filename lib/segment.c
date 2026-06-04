@@ -42,14 +42,15 @@ static void clear_display() {
     }
 }
 
-void segment(char* arg) {
+int segment(char* arg) {
     printf("Segment command: %s\n", arg);
 
     if (rpi_init() == -1) {
         fprintf(stderr, "rpi_init failed\n");
-        return;
+        return -1;
     }
 
+    int result = 0;
     gpio_lock();
 
     if (strcasecmp(arg, "OFF") == 0) {
@@ -67,6 +68,7 @@ void segment(char* arg) {
             set_led_state((val == 0) ? 1 : 0);
         } else {
             fprintf(stderr, "invalid show argument: %s\n", arg);
+            result = -1;
         }
     }else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
@@ -86,7 +88,7 @@ void segment(char* arg) {
                 softPwmWrite(LED_PIN, 0);
                 set_led_state(0);
                 gpio_unlock();
-                return;
+                return 0;
             }
 
             display_digit(i);
@@ -108,7 +110,7 @@ void segment(char* arg) {
             softPwmWrite(LED_PIN, 0);
             set_led_state(0);
             gpio_unlock();
-            return;
+            return 0;
         }
 
         // Value became 0, turn on LED
@@ -146,7 +148,7 @@ void segment(char* arg) {
                     softPwmWrite(LED_PIN, 0);
                     set_led_state(0);
                     gpio_unlock();
-                    return;
+                    return 0;
                 }
                 display_digit(i);
                 gpio_unlock();
@@ -172,8 +174,10 @@ void segment(char* arg) {
         } else {
             fprintf(stderr, "invalid argument: %s\n", arg);
             fprintf(stderr, "Usage: start|OFF|0-9|show/0-9\n");
+            result = -1;
         }
     }
 
     gpio_unlock();
+    return result;
 }
