@@ -7,6 +7,7 @@
 #include <softTone.h>
 #include <dlfcn.h>
 #include "rpi_common.h"
+#include <buzzor.h>
 
 // Set to 1 if using a Common Anode display, 0 for Common Cathode
 #define COMMON_ANODE 1
@@ -113,7 +114,8 @@ void segment(char* arg) {
 
         void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
         if(buzz_handle) {
-            void (*buzzer_func)(void) = dlsym(buzz_handle, "play_fein_style_alert");
+            play_fein_style_alert_t buzzer_func = (play_fein_style_alert_t)dlsym(buzz_handle, "play_fein_style_alert");
+
             if(buzzer_func) {
                 buzzer_func();
             } else {
@@ -152,7 +154,7 @@ void segment(char* arg) {
 
             void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
                 if(buzz_handle) {
-                    void (*buzzer_func)(void) = dlsym(buzz_handle, "play_fein_style_alert");
+                    play_fein_style_alert_t buzzer_func = (play_fein_style_alert_t)dlsym(buzz_handle, "play_fein_style_alert");
                     if(buzzer_func) {
                         buzzer_func();
                     } else {

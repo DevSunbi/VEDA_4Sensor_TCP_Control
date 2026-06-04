@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <wiringPiI2C.h>
 #include <pthread.h>
+#include <unistd.h>
 #include "rpi_common.h"
 
 #define CDS 0
@@ -110,6 +111,7 @@ int get_cds_value()
     }
 
     if (rpi_init() == -1) {
+        close(fd);
         return -1;
     }
 
@@ -120,6 +122,8 @@ int get_cds_value()
     a2dVal = wiringPiI2CRead(fd);
 
     gpio_unlock();
+
+    close(fd);
 
     return a2dVal;
 }

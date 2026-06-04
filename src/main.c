@@ -11,9 +11,31 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
-#include <lib/rpi_common.h>
+#include <rpi_common.h>
 #include <poll.h>
 #include <limits.h>
+#include <led.h>
+#include <buzzor.h>
+#include <photoresistor.h>
+#include <segment.h>
+
+
+typedef struct {
+    void *led_handle;
+    led_func_t led_func;
+
+    void *buzzer_handle;
+    buzzer_func_t buzzer_func;
+
+    void *segment_handle;
+    segment_func_t segment_func;
+
+    void *photoresistor_handle;
+    get_cds_value_t get_cds_value_func;
+    get_pr_value_t get_pr_value_func;
+} HardwareModules;
+
+HardwareModules hw;
 
 #define MAX_FDS 64
 
@@ -33,16 +55,16 @@ pthread_mutex_t pr_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define PORT 8000
 
-void (*led_func)(char*) = NULL;
-void (*buzzer_func)(char*) = NULL;
-void (*segment_func)(char*) = NULL;
-int (*get_cds_value_func)(void) = NULL;
-int (*get_pr_value_func)(void) = NULL;
+// void (*led_func)(char*) = NULL;
+// void (*buzzer_func)(char*) = NULL;
+// void (*segment_func)(char*) = NULL;
+// int (*get_cds_value_func)(void) = NULL;
+// int (*get_pr_value_func)(void) = NULL;
 
-void *led_handle = NULL;
-void *buzzer_handle = NULL;
-void *segment_handle = NULL;
-void *pr_handle = NULL;
+// void *led_handle = NULL;
+// void *buzzer_handle = NULL;
+// void *segment_handle = NULL;
+// void *pr_handle = NULL;
 
 int main(int argc, char *argv[])
 {
@@ -68,34 +90,68 @@ int main(int argc, char *argv[])
     }
 
     // Load dynamic libraries and resolve function symbols
-    led_handle = dlopen("./libled.so", RTLD_LAZY);
-    if (!led_handle) {
+    // led_handle = dlopen("./libled.so", RTLD_LAZY);
+    // if (!led_handle) {
+    //     fprintf(stderr, "Failed to load libled.so: %s\n", dlerror());
+    // } else {
+    //     led_func = dlsym(led_handle, "led");
+    // }
+
+    // buzzer_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+    // if (!buzzer_handle) {
+    //     fprintf(stderr, "Failed to load libbuzzor.so: %s\n", dlerror());
+    // } else {
+    //     buzzer_func = dlsym(buzzer_handle, "buzzer");
+    // }
+
+    // segment_handle = dlopen("./libsegment.so", RTLD_LAZY);
+    // if (!segment_handle) {
+    //     fprintf(stderr, "Failed to load libsegment.so: %s\n", dlerror());
+    // } else {
+    //     segment_func = dlsym(segment_handle, "segment");
+    // }
+
+    // pr_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    // if (!pr_handle) {
+    //     fprintf(stderr, "Failed to load libphotoresistor.so: %s\n", dlerror());
+    // } else {
+    //     get_cds_value_func = dlsym(pr_handle, "get_cds_value");
+    //     get_pr_value_func = dlsym(pr_handle, "get_pr_value");
+    // }
+
+    // LED
+    hw.led_handle = dlopen("./libled.so", RTLD_LAZY);
+    if (!hw.led_handle) {
         fprintf(stderr, "Failed to load libled.so: %s\n", dlerror());
     } else {
-        led_func = dlsym(led_handle, "led");
+        hw.led_func = (led_func_t)dlsym(hw.led_handle, "led");
     }
 
-    buzzer_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
-    if (!buzzer_handle) {
+    // BUZZER
+    hw.buzzer_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+    if (!hw.buzzer_handle) {
         fprintf(stderr, "Failed to load libbuzzor.so: %s\n", dlerror());
     } else {
-        buzzer_func = dlsym(buzzer_handle, "buzzer");
+        hw.buzzer_func = (buzzer_func_t)dlsym(hw.buzzer_handle, "buzzer");
     }
 
-    segment_handle = dlopen("./libsegment.so", RTLD_LAZY);
-    if (!segment_handle) {
+    // SEGMENT
+    hw.segment_handle = dlopen("./libsegment.so", RTLD_LAZY);
+    if (!hw.segment_handle) {
         fprintf(stderr, "Failed to load libsegment.so: %s\n", dlerror());
     } else {
-        segment_func = dlsym(segment_handle, "segment");
+        hw.segment_func = (segment_func_t)dlsym(hw.segment_handle, "segment");
     }
 
-    pr_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
-    if (!pr_handle) {
+    // PHOTORESISTOR
+    hw.photoresistor_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    if (!hw.photoresistor_handle) {
         fprintf(stderr, "Failed to load libphotoresistor.so: %s\n", dlerror());
     } else {
-        get_cds_value_func = dlsym(pr_handle, "get_cds_value");
-        get_pr_value_func = dlsym(pr_handle, "get_pr_value");
+        hw.get_cds_value_func = (get_cds_value_t)dlsym(hw.photoresistor_handle, "get_cds_value");
+        hw.get_pr_value_func = (get_pr_value_t)dlsym(hw.photoresistor_handle, "get_pr_value");
     }
+
 
     // 1. 소켓 생성
     if ((ssock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -208,6 +264,7 @@ void *clnt_connection(void *arg)
 {
     /* 스레드를 통해서 넘어온 arg를 int 형의 파일 디스크립터로 변환한다. */
     int csock = *((int*)arg);
+    free(arg);
     FILE *clnt_read, *clnt_write;
     char reg_line[BUFSIZ], reg_buf[BUFSIZ];
     char method[BUFSIZ], type[BUFSIZ];
@@ -269,57 +326,57 @@ void *clnt_connection(void *arg)
             goto END;
         }
 
-        if (!led_func) {
+        if (!hw.led_func) {
             fprintf(stderr, "led_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
         if (strcasecmp(state, "on") == 0) {
-            led_func("ON");
+            hw.led_func("ON");
         } else if (strcasecmp(state, "mid") == 0) {
-            led_func("MID");
+            hw.led_func("MID");
         } else if (strcasecmp(state, "off") == 0) {
-            led_func("OFF");
+            hw.led_func("OFF");
         } else if (strncasecmp(state, "brightness?value=", 17) == 0) {
-            led_func(state+17);
+            hw.led_func(state+17);
         } else {
-            led_func(state);
+            hw.led_func(state);
         }
         sendOk(clnt_write);
         goto END;
     } else if(strncmp(filename, "buzz/", 5) == 0) {
         char *note = filename + 5;
-        if (!buzzer_func) {
+        if (!hw.buzzer_func) {
             fprintf(stderr, "buzzer_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
-        buzzer_func(note);
+        hw.buzzer_func(note);
         sendOk(clnt_write);
         goto END;
     } else if(strncmp(filename, "segment/", 8) == 0 || strncmp(filename, "ldr/", 4) == 0) {
         char *cmd = (strncmp(filename, "segment/", 8) == 0) ? (filename + 8) : (filename + 4);
-        if (!segment_func) {
+        if (!hw.segment_func) {
             fprintf(stderr, "segment_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
         if (strcasecmp(cmd, "status") == 0) {
-            segment_func("status");
+            hw.segment_func("status");
         } else if (strcasecmp(cmd, "off") == 0) {
-            segment_func("OFF");
+            hw.segment_func("OFF");
         } else {
-            segment_func(cmd);
+            hw.segment_func(cmd);
         }
         sendOk(clnt_write);
         goto END;
     } else if(strcmp(filename, "pr") == 0) {
-        if (!get_cds_value_func) {
+        if (!hw.get_cds_value_func) {
             fprintf(stderr, "get_cds_value_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
-        int val = get_cds_value_func();
+        int val = hw.get_cds_value_func();
 
         char content[32];
         snprintf(content, sizeof(content), "%d", val);
@@ -335,12 +392,12 @@ void *clnt_connection(void *arg)
         fflush(clnt_write);
         goto END;
     } else if(strcasecmp(filename, "pr/digital")==0) {
-        if (!get_pr_value_func) {
+        if (!hw.get_pr_value_func) {
             fprintf(stderr, "get_pr_value_func not resolved\n");
             sendError(clnt_write);
             goto END;
         }
-        int val = get_pr_value_func();
+        int val = hw.get_pr_value_func();
 
         char content[32];
         snprintf(content, sizeof(content), "%d", val);
@@ -552,13 +609,13 @@ void* auto_pr_control_thread(void* arg) {
     printf("[Auto PR] Thread Started\n");
 
     while(auto_pr_running) {
-        if (get_pr_value_func && led_func) {
-            int val = get_pr_value_func();
+        if (hw.get_pr_value_func && hw.led_func) {
+            int val = hw.get_pr_value_func();
 
             if(val == 0) {
-                led_func("ON");
+                hw.led_func("ON");
             } else {
-                led_func("OFF");
+                hw.led_func("OFF");
             }
         }
         sleep(1);

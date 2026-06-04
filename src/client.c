@@ -166,10 +166,10 @@ void send_command(const char *host, const char *cmd) {
         return;
     }
 
-    if((sockfd=socket(AF_INET, SOCK_STREAM, 0))==-1) {
-        perror("socket");
-        return;
-    } 
+        if((sockfd=socket(AF_INET, SOCK_STREAM, 0))==-1) {
+            perror("socket");
+            return;
+        }
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);

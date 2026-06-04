@@ -2,7 +2,7 @@ CC = aarch64-linux-gnu-gcc
 HOST_CC = gcc
 SYSROOT = $(HOME)/rpi-sysroot
 
-CFLAGS = -Wall -Wextra -fPIC -I./lib -I. --sysroot=$(SYSROOT) -I$(SYSROOT)/usr/include -I$(SYSROOT)/usr/local/include
+CFLAGS = -Wall -Wextra -fPIC -I./lib -I./include -I. --sysroot=$(SYSROOT) -I$(SYSROOT)/usr/include -I$(SYSROOT)/usr/local/include
 
 CROSS_LDFLAGS = --sysroot=$(SYSROOT) \
                 -L$(SYSROOT)/lib/aarch64-linux-gnu \
