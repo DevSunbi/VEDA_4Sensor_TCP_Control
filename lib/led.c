@@ -37,14 +37,15 @@ void led(char *arg)
         printf("LED OFF\n");
     } 
     else {
-        fprintf(stderr, "invalid argument: %s\n", arg);
-        fprintf(stderr, "Usage: ON|OFF\n");
-
-        int brightness = atoi(arg);
-        if(brightness >= 0 && brightness <=1024) {
-            pwmWrite(LED_PIN, brightness);
+        char *endptr;
+        long brightness = strtol(arg, &endptr, 10);
+        if (*endptr == '\0' && endptr != arg && brightness >= 0 && brightness <= 1024) {
+            pwmWrite(LED_PIN, (int)brightness);
             set_led_state(brightness > 0 ? 1 : 0);
-            printf("LED brightness: %d\n", brightness);
+            printf("LED brightness: %ld\n", brightness);
+        } else {
+            fprintf(stderr, "invalid argument: %s\n", arg);
+            fprintf(stderr, "Usage: ON|MID|OFF|brightness(0-1024)\n");
         }
     }
 

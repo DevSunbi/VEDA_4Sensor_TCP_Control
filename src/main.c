@@ -287,6 +287,36 @@ int main(int argc, char *argv[])
     printf("Shutting down server gracefully...\n");
     close(ssock);
 
+    // 1. Stop auto_pr thread
+    pthread_mutex_lock(&pr_mutex);
+    if(auto_pr_running) {
+        auto_pr_running = 0;
+        pthread_mutex_unlock(&pr_mutex);
+        printf("Waiting for Auto PR thread to stop...\n");
+        pthread_join(auto_pr_thread, NULL);
+    } else {
+        pthread_mutex_unlock(&pr_mutex);
+    }
+
+    // 2. Wait for all active client connection threads to exit
+    int active_count;
+    printf("Waiting for active request threads to stop...\n");
+    do {
+        active_count = 0;
+        pthread_mutex_lock(&thread_list_mutex);
+        for(int i = 0; i < MAX_THREADS; i++) {
+            if(active_threads[i].is_activate) {
+                active_count++;
+            }
+        }
+        pthread_mutex_unlock(&thread_list_mutex);
+        if(active_count > 0) {
+            usleep(100000); // 100ms
+        }
+    } while(active_count > 0);
+    printf("All active threads stopped. Safely unloading libraries.\n");
+
+    // 3. Unload libraries safely
     if(hw.led_handle) dlclose(hw.led_handle);
     if(hw.buzzer_handle) dlclose(hw.buzzer_handle);
     if(hw.segment_handle) dlclose(hw.segment_handle);
@@ -357,7 +387,9 @@ void *clnt_connection(void *arg)
             if(!active_threads[i].is_activate) {
                 active_threads[i].tid = pthread_self();
                 strncpy(active_threads[i].client_ip, client_ip_str, sizeof(active_threads[i].client_ip) - 1);
+                active_threads[i].client_ip[sizeof(active_threads[i].client_ip) - 1] = '\0';
                 strncpy(active_threads[i].active_cmd, filename, sizeof(active_threads[i].active_cmd) - 1);
+                active_threads[i].active_cmd[sizeof(active_threads[i].active_cmd) - 1] = '\0';
                 active_threads[i].start_time = time(NULL);
                 active_threads[i].is_activate = 1;
                 break;
@@ -504,29 +536,45 @@ void *clnt_connection(void *arg)
             goto END;
         }
     } else if(strcmp(filename, "api/threads") == 0) {
-        char response_body[4096] = "[";
-        int first = 1;
+        char response_body[4096];
+        size_t body_len = 0;
+        response_body[0] = '[';
+        response_body[1] = '\0';
+        body_len = 1;
 
         pthread_mutex_lock(&thread_list_mutex);
         
         for(int i = 0; i < MAX_THREADS; i++) {
             char item[256];
             if(active_threads[i].is_activate) {
-                if(!first) {
-                    strcat(response_body, ",");
-                }
+                // Ensure null-termination
+                active_threads[i].client_ip[sizeof(active_threads[i].client_ip) - 1] = '\0';
+                active_threads[i].active_cmd[sizeof(active_threads[i].active_cmd) - 1] = '\0';
+
                 double elapsed = difftime(time(NULL), active_threads[i].start_time);
-                snprintf(item, sizeof(item), "{\"tid\":%lu,\"ip\":\"%s\",\"cmd\":\"%s\",\"uptime\":%.0f}", 
-                (unsigned long)active_threads[i].tid, 
-                active_threads[i].client_ip, 
-                active_threads[i].active_cmd, 
-                elapsed);
-                strcat(response_body, item);
-                first = 0;
+                int written = snprintf(item, sizeof(item), 
+                    "%s{\"tid\":%lu,\"ip\":\"%s\",\"cmd\":\"%s\",\"uptime\":%.0f}", 
+                    (body_len > 1) ? "," : "",
+                    (unsigned long)active_threads[i].tid, 
+                    active_threads[i].client_ip, 
+                    active_threads[i].active_cmd, 
+                    elapsed);
+                
+                if (written > 0 && body_len + written + 2 < sizeof(response_body)) {
+                    strcpy(response_body + body_len, item);
+                    body_len += written;
+                } else {
+                    break;
+                }
             }
         }
         pthread_mutex_unlock(&thread_list_mutex);
-        strcat(response_body, "]");
+        
+        if (body_len + 1 < sizeof(response_body)) {
+            response_body[body_len] = ']';
+            response_body[body_len + 1] = '\0';
+            body_len += 1;
+        }
 
         char response_header[BUFSIZ];
         snprintf(response_header, sizeof(response_header), 
@@ -534,7 +582,7 @@ void *clnt_connection(void *arg)
             "Content-Type: application/json\r\n"
             "Content-Length: %zu\r\n"
             "Access-Control-Allow-Origin: *\r\n\r\n",
-            strlen(response_body));
+            body_len);
         fputs(response_header, clnt_write);
         fputs(response_body, clnt_write);
         fflush(clnt_write);
@@ -715,7 +763,14 @@ void* auto_pr_control_thread(void* arg) {
     (void)arg;
     printf("[Auto PR] Thread Started\n");
 
-    while(auto_pr_running) {
+    while(1) {
+        int running;
+        pthread_mutex_lock(&pr_mutex);
+        running = auto_pr_running;
+        pthread_mutex_unlock(&pr_mutex);
+
+        if(!running) break;
+
         if (hw.get_pr_value_func && hw.led_func) {
             int val = hw.get_pr_value_func();
 

@@ -58,11 +58,14 @@ void segment(char* arg) {
         set_led_state(0);
         printf("Segment and LED OFF\n");
     } else if(strncasecmp(arg, "show/", 5)==0) {
-        int val = atoi(arg + 5);
-        if(val >= 0 && val <=9) {
-            display_digit(val);
+        char *endptr;
+        long val = strtol(arg + 5, &endptr, 10);
+        if(*endptr == '\0' && endptr != arg + 5 && val >= 0 && val <= 9) {
+            display_digit((int)val);
             pwmWrite(LED_PIN, (val == 0) ? 1024 : 0);
             set_led_state((val == 0) ? 1 : 0);
+        } else {
+            fprintf(stderr, "invalid show argument: %s\n", arg);
         }
     }else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
@@ -127,11 +130,12 @@ void segment(char* arg) {
         }
     } else {
         // Try parsing direct digit
-        int val = atoi(arg);
-        if (val >= 0 && val <= 9) {
-            printf("Starting Countdown from %d to 0...\n", val);
+        char *endptr;
+        long val = strtol(arg, &endptr, 10);
+        if (*endptr == '\0' && endptr != arg && val >= 0 && val <= 9) {
+            printf("Starting Countdown from %ld to 0...\n", val);
             set_cancel_countdown(0);
-            for(int i = val; i >= 0; i--) {
+            for(int i = (int)val; i >= 0; i--) {
                 gpio_unlock();
                 int cancelled = get_cancel_countdown();
                 gpio_lock();
@@ -153,20 +157,20 @@ void segment(char* arg) {
             printf("Digit 0, LED ON\n");
 
             void* buzz_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
-                if(buzz_handle) {
-                    play_fein_style_alert_t buzzer_func = (play_fein_style_alert_t)dlsym(buzz_handle, "play_fein_style_alert");
-                    if(buzzer_func) {
-                        buzzer_func();
-                    } else {
-                        fprintf(stderr, "dlsym play_fein_style_alert failed: %s\n", dlerror());
-                    }
-                    dlclose(buzz_handle);
+            if(buzz_handle) {
+                play_fein_style_alert_t buzzer_func = (play_fein_style_alert_t)dlsym(buzz_handle, "play_fein_style_alert");
+                if(buzzer_func) {
+                    buzzer_func();
                 } else {
-                    fprintf(stderr, "dlopen ./libbuzzor.so failed: %s\n", dlerror());
+                    fprintf(stderr, "dlsym play_fein_style_alert failed: %s\n", dlerror());
                 }
+                dlclose(buzz_handle);
+            } else {
+                fprintf(stderr, "dlopen ./libbuzzor.so failed: %s\n", dlerror());
+            }
         } else {
             fprintf(stderr, "invalid argument: %s\n", arg);
-            fprintf(stderr, "Usage: start|OFF|0-9\n");
+            fprintf(stderr, "Usage: start|OFF|0-9|show/0-9\n");
         }
     }
 

@@ -49,22 +49,34 @@ void gpio_unlock(void)
 
 void set_led_state(int state)
 {
+    pthread_mutex_lock(&gpio_mutex);
     shared_led_state = state;
+    pthread_mutex_unlock(&gpio_mutex);
 }
 
 int get_led_state(void)
 {
-    return shared_led_state;
+    int state;
+    pthread_mutex_lock(&gpio_mutex);
+    state = shared_led_state;
+    pthread_mutex_unlock(&gpio_mutex);
+    return state;
 }
 
 static int cancel_countdown_flag = 0;
 
 void set_cancel_countdown(int val)
 {
+    pthread_mutex_lock(&gpio_mutex);
     cancel_countdown_flag = val;
+    pthread_mutex_unlock(&gpio_mutex);
 }
 
 int get_cancel_countdown(void)
 {
-    return cancel_countdown_flag;
+    int val;
+    pthread_mutex_lock(&gpio_mutex);
+    val = cancel_countdown_flag;
+    pthread_mutex_unlock(&gpio_mutex);
+    return val;
 }

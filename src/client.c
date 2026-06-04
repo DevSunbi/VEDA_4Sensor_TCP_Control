@@ -23,6 +23,19 @@ server_running = 1;
 void send_command(const char *host, const char *cmd);
 int is_numeric(const char *str);
 void handle_shutdown_signal(int sig);
+void cleanup_client(void);
+
+void cleanup_client(void)
+{
+    if (strlen(server_ip) > 0) {
+        send_command(server_ip, "pr/auto/stop");
+    }
+
+    if (sockfd != -1) {
+        close(sockfd);
+        sockfd = -1;
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -47,7 +60,7 @@ int main(int argc, char *argv[])
     exit(1);
    }
 
-   printf("[Connected to Server IP: %s]\n", (char*)inet_ntoa(*((struct in_addr *)he->h_addr)));
+   printf("[Resolved Server IP: %s]\n", (char*)inet_ntoa(*((struct in_addr *)he->h_addr)));
 
    int choice;
    char line[128];
@@ -158,17 +171,12 @@ int main(int argc, char *argv[])
         }
     }
     else if (choice == 5) {
-        printf("\n[Cleanup] Stopping auto control (if running) and quitting program...\n");
-        if(strlen(server_ip)>0) {
-            send_command(server_ip, "pr/auto/stop");
-        }
-        if(sockfd != -1) {
-            close(sockfd);
-            sockfd = -1;
-        }
+        printf("\nStopping auto control (if running) and quitting program...\n");
+        server_running = 0;
         break;
     }
    }
+   cleanup_client();
    return 0;
 }
 
