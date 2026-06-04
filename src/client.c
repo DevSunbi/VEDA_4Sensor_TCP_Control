@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
    sa.sa_handler = handle_shutdown_signal;
    sigemptyset(&sa.sa_mask);
    sa.sa_flags = 0;
-   //signal(SIGINT, sigint_handler);
+   sigaction(SIGINT, &sa, NULL);
    signal(SIGTSTP, SIG_IGN);
    signal(SIGQUIT, SIG_IGN);
 
@@ -107,6 +107,25 @@ int main(int argc, char *argv[])
         
         if(fgets(line, sizeof(line), stdin)!=NULL) {
             if(sscanf(line, "%s", seg_cmd) == 1) {
+                int valid = 0;
+                if (strcasecmp(seg_cmd, "start") == 0 || strcasecmp(seg_cmd, "off") == 0) {
+                    valid = 1;
+                } else if (is_numeric(seg_cmd) && strlen(seg_cmd) == 1) {
+                    int val = atoi(seg_cmd);
+                    if (val >= 0 && val <= 9) valid = 1;
+                } else if (strncmp(seg_cmd, "show/", 5) == 0) {
+                    char *val_str = seg_cmd + 5;
+                    if (is_numeric(val_str) && strlen(val_str) == 1) {
+                        int val = atoi(val_str);
+                        if (val >= 0 && val <= 9) valid = 1;
+                    }
+                }
+
+                if (!valid) {
+                    printf("Invalid segment command! (Allowed: start, off, 0-9, show/0-9)\n");
+                    continue;
+                }
+
                 char cmd[128];
                 snprintf(cmd, sizeof(cmd), "segment/%s", seg_cmd);
 
@@ -139,27 +158,20 @@ int main(int argc, char *argv[])
         }
     }
     else if (choice == 5) {
-        printf("Stopping auto control (if running) and quitting program...\n");
-        send_command(server_ip, "pr/auto/stop");
+        printf("\n[Cleanup] Stopping auto control (if running) and quitting program...\n");
+        if(strlen(server_ip)>0) {
+            send_command(server_ip, "pr/auto/stop");
+        }
+        if(sockfd != -1) {
+            close(sockfd);
+            sockfd = -1;
+        }
         break;
     }
    }
    return 0;
 }
 
-// void sigint_handler(int signo) {
-//     (void)signo;
-//     printf("\n Ctrl+C Detected : Stopping auto control and exiting...\n");
-//     if (strlen(server_ip) > 0) {
-//         send_command(server_ip, "pr/auto/stop");
-//     }
-//     if (sockfd != -1) {
-//         close(sockfd);
-//         printf("[Resource Cleanup] Closed active socket descriptor: %d\n", sockfd);
-//         sockfd = -1;
-//     }
-//     exit(0);
-// }
 
 void send_command(const char *host, const char *cmd) {
     struct hostent *he;
@@ -184,11 +196,28 @@ void send_command(const char *host, const char *cmd) {
 
     memset(&(server_addr.sin_zero), '\0', 8);
 
-    if(connect(sockfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
+    int retries = 3;
+    int delay_sec = 1;
+    while (1) {
+        if(connect(sockfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == 0) {
+            break;
+        }
         perror("connect");
         close(sockfd);
         sockfd = -1;
-        return;
+
+        if (--retries <= 0) {
+            fprintf(stderr, "Failed to connect to server after multiple attempts.\n");
+            return;
+        }
+        printf("Connection failed. Retrying in %d seconds...\n", delay_sec);
+        sleep(delay_sec);
+        delay_sec *= 2;
+
+        if((sockfd=socket(AF_INET, SOCK_STREAM, 0))==-1) {
+            perror("socket");
+            return;
+        }
     }
 
     snprintf(req, sizeof(req), 
