@@ -44,3 +44,9 @@ libsegment.so: lib/segment.c
 
 clean:
 	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(LIBS)
+
+# Pattern rule for single-file cross-compilation
+# Usage: make blink (compiles blink.c -> blink)
+%: %.c
+	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi -lpthread
+
