@@ -24,6 +24,34 @@ VEDA Multi-Sensor TCP Control System 실행 과정
 - CDS Digital: wPi 0 / BCM 17 / Physical 11
 - 7-Segment A~DP: wPi 21, 22, 23, 24, 25, 27, 28, 29
 
+디렉토리 구조:
+VEDA_4Sensor_TCP_Control/
+├── Makefile                  빌드 스크립트
+├── README.md                 프로젝트 안내
+├── 개발문서.md                개발 과정 문서
+├── 실행_과정.txt              본 문서
+├── src/
+│   ├── main.c                TCP 서버
+│   └── client.c              CLI 클라이언트
+├── include/                  공유 헤더
+│   ├── rpi_common.h
+│   ├── led.h, buzzor.h
+│   ├── photoresistor.h
+│   └── segment.h
+├── lib/                      장치 드라이버 소스
+│   ├── rpi_common.c
+│   ├── led.c, buzzor.c
+│   ├── photoresistor.c
+│   └── segment.c
+├── resources/                웹 대시보드 HTML
+│   ├── index.html
+│   ├── led.html, buzzer.html
+│   ├── segment.html
+│   └── pr.html
+└── docs/                     문서 및 이미지
+    ├── images/
+    └── issue_report.md
+
 
 2. 소스 코드 준비
 -----------------
@@ -112,6 +140,11 @@ Server started on port 8000 with poll/multi-thread...
 ./server
 
 데몬 모드에서는 터미널이 바로 반환된다. 브라우저 또는 클라이언트로 접속해 동작을 확인한다.
+
+서버 종료:
+- 전경 모드에서 Ctrl+C를 누르면 sigaction()으로 등록된 핸들러가
+  server_running 플래그를 0으로 설정하고, 메인 루프가 안전하게 종료된다.
+- 데몬 모드에서는 kill <PID>로 종료한다.
 
 
 6. 웹 대시보드 실행
@@ -231,6 +264,7 @@ Select menu:
 LED 시연:
 1 입력
 ON 또는 MID 또는 OFF 또는 0~1024 숫자 입력
+잘못된 입력 시 에러 메시지가 출력되고 메뉴로 복귀
 
 부저 시연:
 2 입력
@@ -238,7 +272,9 @@ do, re, mi, fa, sol, la, si, do2, off 중 하나 입력
 
 7세그먼트 시연:
 3 입력
-start 또는 off 입력
+start 또는 off 또는 0~9 또는 show/0~9 입력
+허용되지 않은 입력(예: abc, 00, show/10) 시 다음 메시지 출력:
+  Invalid segment command! (Allowed: start, off, 0-9, show/0-9)
 
 조도센서 시연:
 4 입력
@@ -253,7 +289,14 @@ start 또는 off 입력
 
 Ctrl+C 종료 확인:
 - 실행 중 Ctrl+C 입력
-- 클라이언트가 pr/auto/stop 요청을 보내고 소켓을 닫은 뒤 종료되는지 확인
+- sigaction()으로 등록된 핸들러가 server_running 플래그를 0으로 설정
+- 메인 루프를 안전하게 빠져나온 후 pr/auto/stop 요청 전송, 소켓 정리, 프로그램 종료
+- POSIX 비동기 시그널 안전성을 준수하여 시그널 핸들러 내부에서는 I/O 작업 없음
+
+연결 실패 재시도 확인:
+- 서버가 꺼진 상태에서 CLI 클라이언트로 명령 전송 시도
+- 최대 3회까지 지수 백오프(1초, 2초, 4초)로 재시도하는 것을 확인
+- 모든 시도 실패 후 에러 메시지 출력 및 메뉴 복귀
 
 
 12. 제출 전 확인
@@ -268,8 +311,10 @@ ls
 - 실행_과정.txt
 - Makefile
 - src/
+- include/
 - lib/
 - resources/
+- docs/
 
 Git 상태 확인:
 
@@ -278,7 +323,8 @@ git status
 필요 시 커밋:
 
 git add README.md 개발문서.md 실행_과정.txt
-git commit -m "docs: add submission development documents"
+git commit -m "docs: update submission documents"
+git push origin main
 
 
 13. 문제 발생 시 점검
@@ -305,4 +351,4 @@ I2C 조도센서 실패:
 - Raspberry Pi IP 확인
 - 서버가 실행 중인지 확인
 - 방화벽 또는 같은 네트워크 여부 확인
-- 현재 보완 과제로 연결 실패 재시도 백오프는 아직 추가 필요
+- 접속 실패 시 자동으로 최대 3회 지수 백오프 재시도가 수행됨
