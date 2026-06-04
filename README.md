@@ -75,6 +75,14 @@ Raspberry Pi 4 GPIO / I2C
 
 ---
 
+## 회로 구성도
+
+![Raspberry Pi 4 Sensor and Output Circuit](./docs/images/raspberry-pi-4-sensor-output-circuit.png)
+
+실제 핀 연결 및 세그먼트 타입은 아래 핀맵과 코드 설정(`lib/rpi_common.h`, `lib/segment.c`)을 우선합니다.
+
+---
+
 ## 주요 기능
 
 | 기능 | 설명 |
