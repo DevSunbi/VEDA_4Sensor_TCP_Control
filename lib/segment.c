@@ -6,6 +6,7 @@
 #include <strings.h>
 #include <softTone.h>
 #include <dlfcn.h>
+#include <softPwm.h>
 #include "rpi_common.h"
 #include <buzzor.h>
 
@@ -54,7 +55,7 @@ void segment(char* arg) {
     if (strcasecmp(arg, "OFF") == 0) {
         set_cancel_countdown(1);
         clear_display();
-        pwmWrite(LED_PIN, 0);
+        softPwmWrite(LED_PIN, 0);
         set_led_state(0);
         printf("Segment and LED OFF\n");
     } else if(strncasecmp(arg, "show/", 5)==0) {
@@ -62,7 +63,7 @@ void segment(char* arg) {
         long val = strtol(arg + 5, &endptr, 10);
         if(*endptr == '\0' && endptr != arg + 5 && val >= 0 && val <= 9) {
             display_digit((int)val);
-            pwmWrite(LED_PIN, (val == 0) ? 1024 : 0);
+            softPwmWrite(LED_PIN, (val == 0) ? 100 : 0);
             set_led_state((val == 0) ? 1 : 0);
         } else {
             fprintf(stderr, "invalid show argument: %s\n", arg);
@@ -70,7 +71,7 @@ void segment(char* arg) {
     }else if (strcasecmp(arg, "start") == 0) {
         printf("Starting countdown from 9 to 0...\n");
         // Reset LED to OFF at start of countdown
-        pwmWrite(LED_PIN, 0);
+        softPwmWrite(LED_PIN, 0);
         set_led_state(0);
         set_cancel_countdown(0);
         
@@ -82,7 +83,7 @@ void segment(char* arg) {
             if (cancelled) {
                 printf("Countdown cancelled!\n");
                 clear_display();
-                pwmWrite(LED_PIN, 0);
+                softPwmWrite(LED_PIN, 0);
                 set_led_state(0);
                 gpio_unlock();
                 return;
@@ -104,14 +105,14 @@ void segment(char* arg) {
         if (cancelled) {
             printf("Countdown cancelled at the end!\n");
             clear_display();
-            pwmWrite(LED_PIN, 0);
+            softPwmWrite(LED_PIN, 0);
             set_led_state(0);
             gpio_unlock();
             return;
         }
 
         // Value became 0, turn on LED
-        pwmWrite(LED_PIN, 1024);
+        softPwmWrite(LED_PIN, 100);
         set_led_state(1);
         printf("LED turned ON!\n");
 
@@ -142,7 +143,7 @@ void segment(char* arg) {
                 if(cancelled) {
                     printf("Canceled!\n");
                     clear_display();
-                    pwmWrite(LED_PIN, 0);
+                    softPwmWrite(LED_PIN, 0);
                     set_led_state(0);
                     gpio_unlock();
                     return;
@@ -152,7 +153,7 @@ void segment(char* arg) {
                 delay(1000);
                 gpio_lock();
             }
-            pwmWrite(LED_PIN, 1024);
+            softPwmWrite(LED_PIN, 100);
             set_led_state(1);
             printf("Digit 0, LED ON\n");
 
