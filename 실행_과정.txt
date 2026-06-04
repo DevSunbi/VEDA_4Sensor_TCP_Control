@@ -299,7 +299,26 @@ Ctrl+C 종료 확인:
 - 모든 시도 실패 후 에러 메시지 출력 및 메뉴 복귀
 
 
-12. 제출 전 확인
+12. 스레드 모니터링 시연
+-----------------------
+웹 시연:
+1. http://<RPI_IP>:8000/ 접속 (index.html 메인 페이지)
+2. 하단의 "Active Thread Monitor" 섹션 확인
+3. 초기에는 "No active threads running"이 출력되는지 확인
+4. 다른 브라우저 창이나 CLI 클라이언트를 통해 7세그먼트 카운트다운을 시작 (예: /segment/start)
+5. 메인 대시보드 화면의 모니터 목록에 해당 스레드 정보(TID, IP Address, Active Task: segment/start, Uptime)가 실시간(1.5초 주기)으로 갱신되며 표시되는지 확인
+6. 카운트다운(10초)이 완료되면 스레드가 목록에서 자동으로 삭제되는지 확인
+
+API 직접 확인:
+
+curl http://<RPI_IP>:8000/api/threads
+
+기대 응답:
+- 활성 스레드가 없을 시: []
+- 활성 스레드가 있을 시: [{"tid":<TID>,"ip":"<IP>","cmd":"segment/start","uptime":3}]
+
+
+13. 제출 전 확인
 ----------------
 다음 파일이 루트에 있는지 확인한다.
 
@@ -320,14 +339,14 @@ Git 상태 확인:
 
 git status
 
-필요 시 커밋:
+필수 커밋 및 푸쉬:
 
-git add README.md 개발문서.md 실행_과정.txt
-git commit -m "docs: update submission documents"
+git add README.md 개발문서.md 실행_과정.txt Makefile resources/index.html src/main.c
+git commit -m "feat: implement active thread monitor on server and web page"
 git push origin main
 
 
-13. 문제 발생 시 점검
+14. 문제 발생 시 점검
 --------------------
 서버가 HTML을 못 찾는 경우:
 - server 실행 위치가 /home/sunbi/prj인지 확인

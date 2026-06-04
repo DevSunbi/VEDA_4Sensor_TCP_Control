@@ -112,6 +112,66 @@
             color: var(--text-secondary);
             font-weight: 300;
         }
+        /* Active Thread Monitor Style */
+        .monitor-panel {
+            margin-top: 40px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+        }
+        .monitor-panel h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #a5b4fc, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .thread-table-wrapper {
+            overflow-x: auto;
+        }
+        .thread-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .thread-table th, .thread-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: left;
+        }
+        .thread-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .thread-table td {
+            color: var(--text-primary);
+        }
+        .thread-table tr:last-child td {
+            border-bottom: none;
+        }
+        .no-threads {
+            text-align: center !important;
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 20px !important;
+        }
+        .badge-active {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -177,6 +237,61 @@
                 <div class="card-desc">Monitor light intensity</div>
             </a>
         </div>
+
+        <!-- Active Threads Monitor Section -->
+        <div class="monitor-panel">
+            <h2>Active Thread Monitor</h2>
+            <div class="thread-table-wrapper">
+                <table class="thread-table">
+                    <thead>
+                        <tr>
+                            <th>Thread ID (TID)</th>
+                            <th>Client IP</th>
+                            <th>Active Task</th>
+                            <th>Uptime</th>
+                        </tr>
+                    </thead>
+                    <tbody id="thread-list">
+                        <tr>
+                            <td colspan="4" class="no-threads">No active threads running</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
+    <script>
+        function updateThreads() {
+            fetch('/api/threads')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network error');
+                    return response.json();
+                })
+                .then(data => {
+                    const tbody = document.getElementById('thread-list');
+                    tbody.innerHTML = '';
+                    if (data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" class="no-threads">No active threads running</td></tr>`;
+                        return;
+                    }
+                    data.forEach(thread => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><span style="font-family: monospace; color: #a5b4fc;">${thread.tid}</span></td>
+                            <td>${thread.ip}</td>
+                            <td><span class="badge-active">${thread.cmd}</span></td>
+                            <td>${thread.uptime}s</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => console.error('Error fetching active threads:', err));
+        }
+
+        // 1.5초 간격으로 실시간 모니터 갱신
+        setInterval(updateThreads, 1500);
+        updateThreads();
+    </script>
 </body>
 </html>

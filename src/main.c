@@ -19,6 +19,7 @@
 #include <buzzor.h>
 #include <photoresistor.h>
 #include <segment.h>
+#include <time.h>
 
 typedef struct {
     void *led_handle;
@@ -36,6 +37,19 @@ typedef struct {
 } HardwareModules;
 
 HardwareModules hw;
+
+typedef struct {
+    pthread_t tid;
+    char client_ip[64];
+    char active_cmd[128];
+    time_t start_time;
+    int is_activate;
+} ThreadInfo;
+
+#define MAX_THREADS 64
+ThreadInfo active_threads[MAX_THREADS];
+pthread_mutex_t thread_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 #define MAX_FDS 64
 
@@ -291,6 +305,14 @@ void *clnt_connection(void *arg)
     char method[BUFSIZ], type[BUFSIZ];
     char filename[BUFSIZ], *ret;
 
+    struct sockaddr_in peer_addr;
+    socklen_t peer_addr_len = sizeof(peer_addr);
+    char client_ip_str[64] = "Unknown";
+    if(getpeername(csock, (struct sockaddr *)&peer_addr, &peer_addr_len) == 0) {
+        inet_ntop(AF_INET, &peer_addr.sin_addr, client_ip_str, sizeof(client_ip_str));
+    }
+
+
     /* 파일 디스크립터를 FILE 스트림으로 변환한다. */
     clnt_read = fdopen(csock, "r");
     clnt_write = fdopen(dup(csock), "w");
@@ -327,6 +349,21 @@ void *clnt_connection(void *arg)
         fputs(response, clnt_write);
         fflush(clnt_write);
         goto END;
+    }
+
+    if(strcmp(filename, "favicon.ico") != 0) {
+        pthread_mutex_lock(&thread_list_mutex);
+        for(int i = 0; i < MAX_THREADS; i++) {
+            if(!active_threads[i].is_activate) {
+                active_threads[i].tid = pthread_self();
+                strncpy(active_threads[i].client_ip, client_ip_str, sizeof(active_threads[i].client_ip) - 1);
+                strncpy(active_threads[i].active_cmd, filename, sizeof(active_threads[i].active_cmd) - 1);
+                active_threads[i].start_time = time(NULL);
+                active_threads[i].is_activate = 1;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&thread_list_mutex);
     }
 
     if(strncmp(filename, "led/", 4) == 0) {
@@ -462,6 +499,45 @@ void *clnt_connection(void *arg)
             }
             sendOk(clnt_write);
             goto END;
+        } else if(strcmp(filename, "api/threads") == 0) {
+            char response_body[4096] = "[";
+            int first = 1;
+
+            pthread_mutex_lock(&thread_list_mutex);
+            
+            for(int i = 0; i < MAX_THREADS; i++) {
+                char item[256];
+                if(active_threads[i].is_activate) {
+                    if(!first) {
+                        strcat(response_body, ",");
+                    }
+                    double elapsed = difftime(time(NULL), active_threads[i].start_time);
+                    snprintf(item, sizeof(item), "{\"tid\":%lu,\"ip\":\"%s\",\"cmd\":\"%s\",\"uptime\":%.0f}", 
+                    (unsigned long)active_threads[i].tid, 
+                    active_threads[i].client_ip, 
+                    active_threads[i].active_cmd, 
+                    elapsed);
+                    strcat(response_body, item);
+                    first = 0;
+                }
+            }
+            pthread_mutex_unlock(&thread_list_mutex);
+            strcat(response_body, "]");
+
+            char response_header[BUFSIZ];
+            snprintf(response_header, sizeof(response_header), 
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: application/json\r\n"
+                "Content-Length: %zu\r\n"
+                "Access-Control-Allow-Origin: *\r\n\r\n",
+                strlen(response_body));
+            fputs(response_header, clnt_write);
+            fputs(response_body, clnt_write);
+            fflush(clnt_write);
+            goto END;
+        } else {
+            sendError(clnt_write);
+            goto END;
         }
     }
 
@@ -478,6 +554,16 @@ void *clnt_connection(void *arg)
     sendData(clnt_write, type, filename);
 
 END:
+
+    pthread_mutex_lock(&thread_list_mutex);
+    for(int i = 0; i < MAX_THREADS; i++) {
+        if(active_threads[i].is_activate && pthread_equal(active_threads[i].tid, pthread_self())) {
+            active_threads[i].is_activate = 0;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&thread_list_mutex);
+
     fclose(clnt_read); 				/* 파일의 스트림을 닫는다. */
     fclose(clnt_write);
     pthread_exit(0); 				/* 스레드를 종료시킨다. */
