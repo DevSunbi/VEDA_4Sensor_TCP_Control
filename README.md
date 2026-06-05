@@ -167,6 +167,19 @@ Raspberry Pi 4 GPIO / I2C
 
 ---
 
+## 멀티스레드 아키텍처
+
+서버는 비동기식으로 다수의 요청을 동시에 처리하고 제어하기 위해 3가지 종류의 스레드로 설계되어 동작합니다.
+
+| 스레드 타입 | 생성 및 관리 방식 | 주요 역할 및 수명 |
+|-------------|-------------------|-------------------|
+| **메인 스레드 (Main Thread)** | 프로세스 기동 시 기본 생성 | * `poll()`을 사용해 클라이언트 소켓 연결 수신<br>* 신규 접속 이벤트 발생 시 `clnt_connection` 스레드 생성 및 `pthread_detach`<br>* 서버 종료(`SIGINT`/`SIGTERM`) 수신 시 `auto_pr_thread`를 `join`하고, 활성 요청 스레드들이 자원을 반환할 때까지 안전하게 대기(Graceful Shutdown) |
+| **클라이언트 스레드 (Client Thread)** | 연결 수신 시 `pthread_create`로 동적 생성 | * **분리 상태(Detached)**로 실행되어 스스로 메모리 자원을 정리<br>* `thread_list_mutex` 동기화 하에 전역 스레드 정보 배열(`active_threads`)에 자신의 정보(TID, Client IP, Command, Start Time)를 등록/해제<br>* 세그먼트 카운트다운(`segment/start`)과 같이 지연 시간(`delay(1000)`)이 포함된 명령 수행 시, 실행 시간만큼 스레드가 유지되어 모니터링 테이블에 실시간 노출 |
+| **자동 조도 제어 스레드 (Auto PR Thread)** | `/pr/auto/start` 요청 시 `pthread_create`로 생성 | * **조인 가능 상태(Joinable)**로 생성되어 단 하나만 독립적으로 구동<br>* `auto_pr_running` 플래그가 활성화된 동안 1초 주기로 조도센서 디지털 값을 읽어 LED를 자동 제어<br>* `/pr/auto/stop` 요청 또는 서버 종료 시 플래그가 `0`으로 꺼지면서 루프 탈출 후 종료되며 `pthread_join`으로 수거됨 |
+
+---
+
+
 ## 회로 구성도
 
 ![Raspberry Pi 4 Sensor and Output Circuit](./docs/images/raspberry-pi-4-sensor-output-circuit.png)
