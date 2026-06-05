@@ -50,3 +50,14 @@ clean:
 %: %.c
 	$(CC) $(CFLAGS) -o $@ $^ $(CROSS_LDFLAGS) -lwiringPi -lpthread
 
+# 배포 설정 변수 (사용자 환경에 맞게 오버라이드 가능)
+# 예: make deploy RPI_IP=192.168.1.50 RPI_USR=pi RPI_DIR=/home/pi/myproject
+RPI_IP ?= 192.168.0.100
+RPI_USR ?= sunbi
+RPI_DIR ?= /home/sunbi/prj
+
+deploy: all
+	ssh $(RPI_USR)@$(RPI_IP) "mkdir -p $(RPI_DIR)"
+	scp $(TARGET_SERVER) $(LIBS) $(RPI_USR)@$(RPI_IP):$(RPI_DIR)/
+	scp -r resources $(RPI_USR)@$(RPI_IP):$(RPI_DIR)/
+
