@@ -13,7 +13,7 @@ all: $(TARGET_SERVER) $(TARGET_CLIENT) $(LIBS)
 
 # server 빌드
 $(TARGET_SERVER): src/main.c lib/rpi_common.c
-	$(CC) $(CFLAGS) -o $@ $^ -lcrypt -lwiringPi -lpthread -ldl
+	$(CC) $(CFLAGS) -o $@ $^ -lwiringPi -lcrypt -lpthread -ldl
 
 # client 빌드 (Host PC 환경)
 $(TARGET_CLIENT): src/client.c
