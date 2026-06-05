@@ -21,22 +21,90 @@
 #include <segment.h>
 #include <time.h>
 
-typedef struct {
-    void *led_handle;
-    led_func_t led_func;
+int call_led(char *arg) {
+    int rc = -1;
+    void *handle = dlopen("./libled.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "Failed to load libled.so: %s\n", dlerror());
+        return -1;
+    }
+    led_func_t led_func = (led_func_t)dlsym(handle, "led");
+    if (led_func) {
+        rc = led_func(arg);
+    } else {
+        fprintf(stderr, "Failed to find symbol led: %s\n", dlerror());
+    }
+    dlclose(handle);
+    return rc;
+}
 
-    void *buzzer_handle;
-    buzzer_func_t buzzer_func;
+int call_buzzer(char *arg) {
+    int rc = -1;
+    void *handle = dlopen("./libbuzzor.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "Failed to load libbuzzor.so: %s\n", dlerror());
+        return -1;
+    }
+    buzzer_func_t buzzer_func = (buzzer_func_t)dlsym(handle, "buzzer");
+    if (buzzer_func) {
+        rc = buzzer_func(arg);
+    } else {
+        fprintf(stderr, "Failed to find symbol buzzer: %s\n", dlerror());
+    }
+    dlclose(handle);
+    return rc;
+}
 
-    void *segment_handle;
-    segment_func_t segment_func;
+int call_segment(char *arg) {
+    int rc = -1;
+    void *handle = dlopen("./libsegment.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "Failed to load libsegment.so: %s\n", dlerror());
+        return -1;
+    }
+    segment_func_t segment_func = (segment_func_t)dlsym(handle, "segment");
+    if (segment_func) {
+        rc = segment_func(arg);
+    } else {
+        fprintf(stderr, "Failed to find symbol segment: %s\n", dlerror());
+    }
+    dlclose(handle);
+    return rc;
+}
 
-    void *photoresistor_handle;
-    get_cds_value_t get_cds_value_func;
-    get_pr_value_t get_pr_value_func;
-} HardwareModules;
+int call_get_cds_value(void) {
+    int rc = -1;
+    void *handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "Failed to load libphotoresistor.so: %s\n", dlerror());
+        return -1;
+    }
+    get_cds_value_t get_cds_value_func = (get_cds_value_t)dlsym(handle, "get_cds_value");
+    if (get_cds_value_func) {
+        rc = get_cds_value_func();
+    } else {
+        fprintf(stderr, "Failed to find symbol get_cds_value: %s\n", dlerror());
+    }
+    dlclose(handle);
+    return rc;
+}
 
-HardwareModules hw;
+int call_get_pr_value(void) {
+    int rc = -1;
+    void *handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "Failed to load libphotoresistor.so: %s\n", dlerror());
+        return -1;
+    }
+    get_pr_value_t get_pr_value_func = (get_pr_value_t)dlsym(handle, "get_pr_value");
+    if (get_pr_value_func) {
+        rc = get_pr_value_func();
+    } else {
+        fprintf(stderr, "Failed to find symbol get_pr_value: %s\n", dlerror());
+    }
+    dlclose(handle);
+    return rc;
+}
 
 typedef struct {
     pthread_t tid;
@@ -71,16 +139,7 @@ pthread_mutex_t pr_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define PORT 8000
 
-// void (*led_func)(char*) = NULL;
-// void (*buzzer_func)(char*) = NULL;
-// void (*segment_func)(char*) = NULL;
-// int (*get_cds_value_func)(void) = NULL;
-// int (*get_pr_value_func)(void) = NULL;
 
-// void *led_handle = NULL;
-// void *buzzer_handle = NULL;
-// void *segment_handle = NULL;
-// void *pr_handle = NULL;
 
 int main(int argc, char *argv[])
 {
@@ -144,37 +203,33 @@ int main(int argc, char *argv[])
     //     get_pr_value_func = dlsym(pr_handle, "get_pr_value");
     // }
 
-    // LED
-    hw.led_handle = dlopen("./libled.so", RTLD_LAZY);
-    if (!hw.led_handle) {
-        fprintf(stderr, "Failed to load libled.so: %s\n", dlerror());
+    // Sanity check for dynamic libraries
+    void *test_led = dlopen("./libled.so", RTLD_LAZY);
+    if (!test_led) {
+        fprintf(stderr, "Warning: libled.so not found or invalid: %s\n", dlerror());
     } else {
-        hw.led_func = (led_func_t)dlsym(hw.led_handle, "led");
+        dlclose(test_led);
     }
 
-    // BUZZER
-    hw.buzzer_handle = dlopen("./libbuzzor.so", RTLD_LAZY);
-    if (!hw.buzzer_handle) {
-        fprintf(stderr, "Failed to load libbuzzor.so: %s\n", dlerror());
+    void *test_buzzer = dlopen("./libbuzzor.so", RTLD_LAZY);
+    if (!test_buzzer) {
+        fprintf(stderr, "Warning: libbuzzor.so not found or invalid: %s\n", dlerror());
     } else {
-        hw.buzzer_func = (buzzer_func_t)dlsym(hw.buzzer_handle, "buzzer");
+        dlclose(test_buzzer);
     }
 
-    // SEGMENT
-    hw.segment_handle = dlopen("./libsegment.so", RTLD_LAZY);
-    if (!hw.segment_handle) {
-        fprintf(stderr, "Failed to load libsegment.so: %s\n", dlerror());
+    void *test_segment = dlopen("./libsegment.so", RTLD_LAZY);
+    if (!test_segment) {
+        fprintf(stderr, "Warning: libsegment.so not found or invalid: %s\n", dlerror());
     } else {
-        hw.segment_func = (segment_func_t)dlsym(hw.segment_handle, "segment");
+        dlclose(test_segment);
     }
 
-    // PHOTORESISTOR
-    hw.photoresistor_handle = dlopen("./libphotoresistor.so", RTLD_LAZY);
-    if (!hw.photoresistor_handle) {
-        fprintf(stderr, "Failed to load libphotoresistor.so: %s\n", dlerror());
+    void *test_pr = dlopen("./libphotoresistor.so", RTLD_LAZY);
+    if (!test_pr) {
+        fprintf(stderr, "Warning: libphotoresistor.so not found or invalid: %s\n", dlerror());
     } else {
-        hw.get_cds_value_func = (get_cds_value_t)dlsym(hw.photoresistor_handle, "get_cds_value");
-        hw.get_pr_value_func = (get_pr_value_t)dlsym(hw.photoresistor_handle, "get_pr_value");
+        dlclose(test_pr);
     }
 
 
@@ -316,11 +371,7 @@ int main(int argc, char *argv[])
     } while(active_count > 0);
     printf("All active threads stopped. Safely unloading libraries.\n");
 
-    // 3. Unload libraries safely
-    if(hw.led_handle) dlclose(hw.led_handle);
-    if(hw.buzzer_handle) dlclose(hw.buzzer_handle);
-    if(hw.segment_handle) dlclose(hw.segment_handle);
-    if(hw.photoresistor_handle) dlclose(hw.photoresistor_handle);
+    printf("Libraries unloaded successfully.\n");
 
     return 0;
 }
@@ -416,22 +467,17 @@ void *clnt_connection(void *arg)
             goto END;
         }
 
-        if (!hw.led_func) {
-            fprintf(stderr, "led_func not resolved\n");
-            sendError(clnt_write);
-            goto END;
-        }
         int rc = 0;
         if (strcasecmp(state, "on") == 0) {
-            rc = hw.led_func("ON");
+            rc = call_led("ON");
         } else if (strcasecmp(state, "mid") == 0) {
-            rc = hw.led_func("MID");
+            rc = call_led("MID");
         } else if (strcasecmp(state, "off") == 0) {
-            rc = hw.led_func("OFF");
+            rc = call_led("OFF");
         } else if (strncasecmp(state, "brightness?value=", 17) == 0) {
-            rc = hw.led_func(state+17);
+            rc = call_led(state+17);
         } else {
-            rc = hw.led_func(state);
+            rc = call_led(state);
         }
         if (rc < 0) {
             sendError(clnt_write);
@@ -441,12 +487,7 @@ void *clnt_connection(void *arg)
         goto END;
     } else if(strncmp(filename, "buzz/", 5) == 0) {
         char *note = filename + 5;
-        if (!hw.buzzer_func) {
-            fprintf(stderr, "buzzer_func not resolved\n");
-            sendError(clnt_write);
-            goto END;
-        }
-        if (hw.buzzer_func(note) < 0) {
+        if (call_buzzer(note) < 0) {
             sendError(clnt_write);
         } else {
             sendOk(clnt_write);
@@ -454,18 +495,13 @@ void *clnt_connection(void *arg)
         goto END;
     } else if(strncmp(filename, "segment/", 8) == 0 || strncmp(filename, "ldr/", 4) == 0) {
         char *cmd = (strncmp(filename, "segment/", 8) == 0) ? (filename + 8) : (filename + 4);
-        if (!hw.segment_func) {
-            fprintf(stderr, "segment_func not resolved\n");
-            sendError(clnt_write);
-            goto END;
-        }
         int rc = 0;
         if (strcasecmp(cmd, "status") == 0) {
-            rc = hw.segment_func("status");
+            rc = call_segment("status");
         } else if (strcasecmp(cmd, "off") == 0) {
-            rc = hw.segment_func("OFF");
+            rc = call_segment("OFF");
         } else {
-            rc = hw.segment_func(cmd);
+            rc = call_segment(cmd);
         }
         if (rc < 0) {
             sendError(clnt_write);
@@ -474,12 +510,11 @@ void *clnt_connection(void *arg)
         }
         goto END;
     } else if(strcmp(filename, "pr") == 0) {
-        if (!hw.get_cds_value_func) {
-            fprintf(stderr, "get_cds_value_func not resolved\n");
+        int val = call_get_cds_value();
+        if (val < 0) {
             sendError(clnt_write);
             goto END;
         }
-        int val = hw.get_cds_value_func();
 
         char content[32];
         snprintf(content, sizeof(content), "%d", val);
@@ -495,12 +530,11 @@ void *clnt_connection(void *arg)
         fflush(clnt_write);
         goto END;
     } else if(strcasecmp(filename, "pr/digital")==0) {
-        if (!hw.get_pr_value_func) {
-            fprintf(stderr, "get_pr_value_func not resolved\n");
+        int val = call_get_pr_value();
+        if (val < 0) {
             sendError(clnt_write);
             goto END;
         }
-        int val = hw.get_pr_value_func();
 
         char content[32];
         snprintf(content, sizeof(content), "%d", val);
@@ -793,13 +827,12 @@ void* auto_pr_control_thread(void* arg) {
 
         if(!running) break;
 
-        if (hw.get_pr_value_func && hw.led_func) {
-            int val = hw.get_pr_value_func();
-
+        int val = call_get_pr_value();
+        if (val != -1) {
             if(val == 0) {
-                hw.led_func("ON");
+                call_led("ON");
             } else {
-                hw.led_func("OFF");
+                call_led("OFF");
             }
         }
         sleep(1);
