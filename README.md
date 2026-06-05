@@ -94,7 +94,6 @@ gantt
 ```text
 VEDA_4Sensor_TCP_Control/
 ├── Makefile                  # 크로스 컴파일 빌드 스크립트
-├── Makefile.simple           # 단순 빌드 참조용
 ├── README.md                 # 프로젝트 소개 및 빌드/실행 안내
 ├── 개발문서.md                # 개발 과정 및 세부 구현 문서
 ├── 실행_과정.md                # 빌드~시연 전체 절차
