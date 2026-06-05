@@ -319,13 +319,16 @@ make
 
 ## 빌드
 
+빌드 환경에 따라 적합한 `Makefile`을 선택합니다.
+
+* **개인 개발 환경 (sysroot 적용)**: 기본 제공되는 `Makefile`을 그대로 사용합니다.
+* **배포 및 일반 환경 (sysroot 미적용)**: `Makefile.simple`을 복사하여 사용합니다.
+  ```bash
+  rm -f Makefile
+  cp Makefile.simple Makefile
+  ```
+
 프로젝트 루트에서 실행합니다.
-
-```bash
-make
-```
-
-리빌드가 필요하면 다음 명령을 사용합니다.
 
 ```bash
 make clean && make
@@ -349,9 +352,20 @@ make clean && make
 배포 기준 경로는 `/home/sunbi/prj`로 통일합니다.
 서버는 데몬 실행 시 `/proc/self/exe`를 통해 실행 파일이 있는 디렉토리로 이동하므로, 실행 파일과 `lib*.so`, `resources/`가 같은 디렉토리 아래에 있으면 됩니다.
 
+### 방법 A: Make 명령어로 자동 배포 (권장)
+
+```bash
+# 기본 변수(RPI_USR=sunbi, RPI_IP=192.168.0.100, RPI_DIR=/home/sunbi/prj)를 사용
+make deploy
+
+# 특정 IP, 계정, 경로를 지정하여 배포
+make deploy RPI_IP=192.168.1.50 RPI_USR=pi RPI_DIR=/home/pi/myproject
+```
+
+### 방법 B: 수동 명령어로 배포
+
 ```bash
 ssh sunbi@<RPI_IP> "mkdir -p /home/sunbi/prj"
-
 scp server lib*.so sunbi@<RPI_IP>:/home/sunbi/prj/
 scp -r resources sunbi@<RPI_IP>:/home/sunbi/prj/
 ```
