@@ -133,7 +133,7 @@ export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
 
 디버그용 전경 실행:
 
-sudo ./server -f
+./server -f
 
 정상 로그 예:
 
@@ -142,7 +142,7 @@ Server started on port 8000 with poll/multi-thread...
 
 제출 시 상시 구동을 보여줄 때는 데몬 모드로 실행한다.
 
-sudo ./server
+./server
 
 데몬 모드에서는 터미널이 바로 반환된다. 브라우저 또는 클라이언트로 접속해 동작을 확인한다.
 
